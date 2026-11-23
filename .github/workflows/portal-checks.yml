@@ -6,10 +6,12 @@ on:
       - stage-2R37-student-portal-frontend
       - stage-2R38-registration-login-import-foundation
       - stage-2R39-controlled-assessment-upload
+      - stage-2R40-staging-project-isolation
   pull_request:
     branches:
       - stage-2R37-student-portal-frontend
       - stage-2R39-controlled-assessment-upload
+      - stage-2R40-staging-project-isolation
 
 permissions:
   contents: read
@@ -28,6 +30,8 @@ jobs:
         run: node --check script.js
       - name: Syntax-check admin JavaScript
         run: node --check admin-portal.js
+      - name: Check staging Supabase configuration isolation
+        run: node staging-config.test.cjs
       - name: Syntax-check student import validator
         run: node --check student-import.js
       - name: Check student import validation tests
