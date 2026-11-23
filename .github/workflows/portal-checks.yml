@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - stage-2R37-student-portal-frontend
+      - stage-2R38-registration-login-import-foundation
   pull_request:
     branches:
       - stage-2R37-student-portal-frontend
@@ -25,6 +26,10 @@ jobs:
         run: node --check script.js
       - name: Syntax-check admin JavaScript
         run: node --check admin-portal.js
+      - name: Syntax-check student import validator
+        run: node --check student-import.js
+      - name: Check student import validation tests
+        run: node student-import.test.cjs
       - name: Check required portal files
         run: |
           test -s student-portal.html
@@ -32,3 +37,4 @@ jobs:
           test -s portal.js
           test -s admin-portal.html
           test -s admin-portal.js
+          test -s student-import.js
