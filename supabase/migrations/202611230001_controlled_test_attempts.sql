@@ -457,17 +457,11 @@ BEGIN
   SELECT * INTO v_exam
   FROM public.logos_td_exams
   WHERE id::text = p_exam_id
-    AND status = 'released'
   FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Exam is not available'; END IF;
-  IF v_exam.starts_at IS NOT NULL AND now() < v_exam.starts_at THEN
-    RAISE EXCEPTION 'This assessment has not started yet';
-  END IF;
-  IF v_exam.ends_at IS NOT NULL AND now() > v_exam.ends_at THEN
-    RAISE EXCEPTION 'The availability window for this assessment has ended';
-  END IF;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Exam not found'; END IF;
 
-  -- Resume an existing in-progress attempt rather than creating another.
+  -- Resume an existing in-progress attempt even if the admin has since closed
+  -- the exam or its start window has ended. The original expiry remains binding.
   SELECT * INTO v_attempt
   FROM public.logos_td_attempts
   WHERE exam_id = v_exam.id
@@ -511,6 +505,16 @@ BEGIN
       'status', v_attempt.status,
       'questions', v_payload
     );
+  END IF;
+
+  IF v_exam.status <> 'released' THEN
+    RAISE EXCEPTION 'Exam is not available for a new attempt';
+  END IF;
+  IF v_exam.starts_at IS NOT NULL AND now() < v_exam.starts_at THEN
+    RAISE EXCEPTION 'This assessment has not started yet';
+  END IF;
+  IF v_exam.ends_at IS NOT NULL AND now() > v_exam.ends_at THEN
+    RAISE EXCEPTION 'The availability window for this assessment has ended';
   END IF;
 
   SELECT count(*)::integer INTO v_count
