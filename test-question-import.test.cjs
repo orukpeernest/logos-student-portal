@@ -14,5 +14,6 @@ assert.throws(()=>importer.parse({questions:[]}),/empty/);
 assert.throws(()=>importer.parse({questions:[{...valid,correct_answer:"E"}]}),/correct_answer/);
 assert.throws(()=>importer.parse({questions:[{...valid,option_b:""}]}),/option B/);
 assert.throws(()=>importer.parse({questions:[{...valid,image_url:"http://example.com/x.png"}]}),/HTTPS/);
+assert.throws(()=>importer.parse({questions:[{...valid,subject:"Chemistry"}]},"Physics"),/does not match/);
 assert.throws(()=>importer.parse("{bad json"),/valid JSON/);
 console.log("Test question import checks passed.");
