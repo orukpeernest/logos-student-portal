@@ -136,6 +136,111 @@ BEGIN
 END;
 $function$;
 
+
+CREATE OR REPLACE FUNCTION public.logos_td_admin_bulk_upload_exam_questions(
+  p_exam_id text,
+  p_questions jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_exam public.logos_td_exams%ROWTYPE;
+  v_item jsonb;
+  v_question_id uuid;
+  v_ids jsonb := '[]'::jsonb;
+  v_position integer := 0;
+  v_subject text;
+  v_answer text;
+  v_image text;
+BEGIN
+  IF NOT public.is_logos_admin() THEN
+    RAISE EXCEPTION 'Administrator access required';
+  END IF;
+  IF p_questions IS NULL OR jsonb_typeof(p_questions) <> 'array' THEN
+    RAISE EXCEPTION 'Questions must be supplied as a JSON array';
+  END IF;
+  IF jsonb_array_length(p_questions) < 1 OR jsonb_array_length(p_questions) > 500 THEN
+    RAISE EXCEPTION 'Upload must contain between 1 and 500 questions';
+  END IF;
+
+  SELECT * INTO v_exam
+  FROM public.logos_td_exams
+  WHERE id::text = p_exam_id AND status = 'draft'
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Only an existing draft assessment can receive questions';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.logos_td_exam_questions WHERE exam_id = v_exam.id) THEN
+    RAISE EXCEPTION 'This draft already contains questions; create a fresh draft for a new bulk upload';
+  END IF;
+
+  FOR v_item IN
+    SELECT value FROM jsonb_array_elements(p_questions) WITH ORDINALITY AS x(value, ordinality)
+    ORDER BY ordinality
+  LOOP
+    v_position := v_position + 1;
+    v_subject := COALESCE(NULLIF(btrim(v_item->>'subject'), ''), v_exam.subject);
+    v_answer := upper(btrim(COALESCE(v_item->>'correct_answer', '')));
+    v_image := NULLIF(btrim(COALESCE(v_item->>'image_url', '')), '');
+
+    IF v_subject <> v_exam.subject THEN
+      RAISE EXCEPTION 'Question % subject does not match the assessment subject', v_position;
+    END IF;
+    IF NULLIF(btrim(COALESCE(v_item->>'question_text','')), '') IS NULL
+       OR NULLIF(btrim(COALESCE(v_item->>'option_a','')), '') IS NULL
+       OR NULLIF(btrim(COALESCE(v_item->>'option_b','')), '') IS NULL
+       OR NULLIF(btrim(COALESCE(v_item->>'option_c','')), '') IS NULL
+       OR NULLIF(btrim(COALESCE(v_item->>'option_d','')), '') IS NULL THEN
+      RAISE EXCEPTION 'Question % is missing its question text or one or more options', v_position;
+    END IF;
+    IF v_answer NOT IN ('A','B','C','D') THEN
+      RAISE EXCEPTION 'Question % has an invalid correct answer', v_position;
+    END IF;
+    IF v_image IS NOT NULL AND v_image !~* '^https://' THEN
+      RAISE EXCEPTION 'Question % image URL must use HTTPS', v_position;
+    END IF;
+
+    INSERT INTO public.logos_td_questions (
+      subject, topic, exam_type, exam_year,
+      question_text, option_a, option_b, option_c, option_d,
+      correct_answer, explanation, image_url, is_practice
+    )
+    VALUES (
+      v_subject,
+      COALESCE(v_item->>'topic',''),
+      COALESCE(NULLIF(v_item->>'exam_type',''), v_exam.exam_type),
+      NULLIF(v_item->>'exam_year','')::integer,
+      btrim(v_item->>'question_text'),
+      btrim(v_item->>'option_a'),
+      btrim(v_item->>'option_b'),
+      btrim(v_item->>'option_c'),
+      btrim(v_item->>'option_d'),
+      v_answer,
+      NULLIF(v_item->>'explanation',''),
+      v_image,
+      false
+    )
+    RETURNING id INTO v_question_id;
+
+    INSERT INTO public.logos_td_exam_questions (exam_id, question_id, position)
+    VALUES (v_exam.id, v_question_id, v_position);
+
+    v_ids := v_ids || jsonb_build_array(v_question_id);
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'exam_id', v_exam.id,
+    'question_count', v_position,
+    'question_ids', v_ids,
+    'status', 'draft'
+  );
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.logos_td_admin_set_results_released(
   p_exam_id text,
   p_released boolean
@@ -659,6 +764,7 @@ REVOKE ALL ON FUNCTION public.logos_td_student_submit_attempt(text, uuid, jsonb,
 -- No browser/user execution of the privileged finalizer.
 REVOKE ALL ON FUNCTION public.logos_td_finalize_attempt_internal(uuid, boolean) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.logos_td_admin_configure_exam(text, text, timestamptz, timestamptz, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.logos_td_admin_bulk_upload_exam_questions(text, jsonb) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.logos_td_admin_set_results_released(text, boolean) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.logos_td_student_start_exam(text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.logos_td_student_save_exam_answer(uuid, text, text) FROM PUBLIC, anon;
@@ -668,6 +774,7 @@ REVOKE ALL ON FUNCTION public.logos_td_finalize_expired_attempts() FROM PUBLIC, 
 GRANT EXECUTE ON FUNCTION public.logos_td_finalize_expired_attempts() TO service_role;
 
 GRANT EXECUTE ON FUNCTION public.logos_td_admin_configure_exam(text, text, timestamptz, timestamptz, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.logos_td_admin_bulk_upload_exam_questions(text, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_admin_set_results_released(text, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_student_start_exam(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_student_save_exam_answer(uuid, text, text) TO authenticated;
