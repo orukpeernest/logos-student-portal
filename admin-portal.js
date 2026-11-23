@@ -60,25 +60,24 @@ admin$("assessment-upload-form").onsubmit=async e=>{
       p_ends_at:endsAt,
       p_max_attempts:Number(fields.get("max_attempts")||1)
     });
-    result.textContent="Draft scheduled. Uploading "+questions.length+" test-only questions…";
-    for(let i=0;i<questions.length;i++){
-      const question={...questions[i],exam_type:questions[i].exam_type||String(fields.get("assessment_period")).trim(),is_practice:false};
-      const saved=await adminRpc("logos_td_admin_save_question",{p_question:question});
-      const questionId=findId(saved);
-      if(!questionId)throw new Error("Question "+(i+1)+" was saved but the database did not return its question ID. Stop and inspect the draft before release.");
-      const attachedOk=await adminRpc("logos_td_admin_attach_question",{
-        p_exam_id:examId,p_question_id:questionId,p_position:i+1
-      });
-      if(attachedOk!==true)throw new Error("Question "+(i+1)+" was not confirmed as attached.");
-      attached++;
-      result.textContent="Uploading test questions: "+attached+" / "+questions.length;
-    }
-    result.textContent="Draft saved successfully. "+attached+" test-only questions attached. Students cannot access this assessment until you release it. Draft exam ID: "+examId;
+    result.textContent="Uploading all "+questions.length+" test-only questions in one database transaction…";
+    const uploadPayload=questions.map(question=>({
+      ...question,
+      exam_type:question.exam_type||String(fields.get("assessment_period")).trim(),
+      is_practice:false
+    }));
+    const uploadResult=await adminRpc("logos_td_admin_bulk_upload_exam_questions",{
+      p_exam_id:examId,
+      p_questions:uploadPayload
+    });
+    attached=Number(uploadResult?.question_count)||0;
+    if(attached!==questions.length)throw new Error("The database did not confirm the complete question upload. Keep the assessment as a draft.");
+    result.textContent="Draft saved successfully. "+attached+" test-only questions attached atomically. Students cannot access this assessment until you release it. Draft exam ID: "+examId;
     setAdminStatus("Draft assessment created with "+attached+" uploaded test questions. It has not been released.");
     adminMsg("Draft assessment and questions saved.");
     form.reset();
   }catch(err){
-    const partial=examId?" Draft exam ID: "+examId+". Questions attached before the error: "+attached+" / "+questions.length+". Keep this assessment as a draft and inspect it before releasing.":"";
+    const partial=examId?" Draft exam ID: "+examId+". The atomic upload did not complete; no partial question batch was committed. Keep the draft unreleased.":"";
     result.textContent=(err.message||"Assessment upload failed.")+partial;
     setAdminStatus("Assessment upload did not finish. Do not release the draft until it has been checked.");
     adminMsg("Assessment upload incomplete.");
