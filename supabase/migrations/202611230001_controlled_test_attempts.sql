@@ -86,7 +86,6 @@ CREATE TABLE IF NOT EXISTS public.logos_td_attempt_answers (
 );
 
 ALTER TABLE public.logos_td_attempt_answers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.logos_td_attempt_answers FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON public.logos_td_attempt_answers FROM anon, authenticated;
 REVOKE ALL ON public.logos_td_attempt_answers FROM PUBLIC;
 
