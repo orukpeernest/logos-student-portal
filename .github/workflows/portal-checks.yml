@@ -23,8 +23,12 @@ jobs:
         run: node --check portal.js
       - name: Syntax-check website JavaScript
         run: node --check script.js
+      - name: Syntax-check admin JavaScript
+        run: node --check admin-portal.js
       - name: Check required portal files
         run: |
           test -s student-portal.html
           test -s portal.css
           test -s portal.js
+          test -s admin-portal.html
+          test -s admin-portal.js
