@@ -31,7 +31,7 @@ admin$("student-backup-form").onsubmit=async e=>{
       report.issues.slice(0,8).forEach(issue=>lines.push("Row "+issue.row+": "+issue.problems.join("; ")));
       if(report.issues.length>8)lines.push("…and "+(report.issues.length-8)+" more row(s) with issues.");
       lines.push("No records have been uploaded or changed. Server-side import is a separate step.");
-      result.textContent=lines.join("\\n");
+      result.textContent=lines.join("\n");
     }else result.textContent=report.error;
   }catch(err){result.textContent=err instanceof SyntaxError?"The selected file is not valid JSON.":(err.message||"Backup validation failed.")}
   finally{button.disabled=false}
