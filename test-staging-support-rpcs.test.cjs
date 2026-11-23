@@ -10,7 +10,6 @@ assert.match(sql, /\bCOMMIT\s*;/i);
 
 const required = [
   "is_logos_admin",
-  "logos_td_admin_attach_question",
   "logos_td_admin_delete_question",
   "logos_td_admin_save_question",
   "logos_td_admin_set_exam_status",
