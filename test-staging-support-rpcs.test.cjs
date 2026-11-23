@@ -28,9 +28,9 @@ assert.match(sql, /where is_practice = true/i);
 assert.match(sql, /limit least\(greatest\(coalesce\(p_limit, 50\), 1\), 100\)/i);
 
 // Legacy attachment is intentionally disabled: controlled tests use test-specific uploads.
-assert.match(sql, /revoke all on function public\\.logos_td_admin_attach_question\\(text, text, integer\\) from public, anon, authenticated/i);
-assert.doesNotMatch(sql, /grant execute on function public\\.logos_td_admin_attach_question/i);
-assert.doesNotMatch(sql, /create or replace function public\\.logos_td_admin_attach_question/i);
+assert.match(sql, /revoke all on function public[.]logos_td_admin_attach_question[(]text, text, integer[)] from public, anon, authenticated/i);
+assert.doesNotMatch(sql, /grant execute on function public[.]logos_td_admin_attach_question/i);
+assert.doesNotMatch(sql, /create or replace function public[.]logos_td_admin_attach_question/i);
 
 // The controlled migration owns these implementations and browser permissions.
 // This restoration must never re-enable the old client-authoritative path.
