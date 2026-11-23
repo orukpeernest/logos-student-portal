@@ -40,6 +40,8 @@ jobs:
         run: node test-controlled-assessment-migration.test.cjs
       - name: Check staging Test Driller foundation invariants
         run: node test-staging-test-driller-foundation.test.cjs
+      - name: Check staging support RPC restoration invariants
+        run: node test-staging-support-rpcs.test.cjs
       - name: Check required portal files
         run: |
           test -s student-portal.html
@@ -52,5 +54,7 @@ jobs:
           test -s test-question-import.test.cjs
           test -s test-controlled-assessment-migration.test.cjs
           test -s test-staging-test-driller-foundation.test.cjs
+          test -s test-staging-support-rpcs.test.cjs
+          test -s docs/STAGING_RESTORE_ORIGINAL_SUPPORT_RPCS.sql
           test -s docs/STAGING_TEST_DRILLER_FOUNDATION.sql
           test -s TEST_DRILLER_ASSESSMENT_UPLOAD_SPEC.md
