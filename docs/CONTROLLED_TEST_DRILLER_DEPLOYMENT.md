@@ -27,6 +27,7 @@ The scheduler needs only the function endpoint and CRON_SECRET. The service-role
 
 ## RPC contract used by the updated frontend
 
+- `logos_td_student_active_attempts()`: lists the authenticated student's active attempts so a closed assessment can still be found and resumed.
 - `logos_td_student_start_exam(p_exam_id text)`: creates or resumes the student's server-timed attempt and returns attempt_id, started_at, expires_at, status and questions. Correct answers are not returned.
 - `logos_td_student_save_exam_answer(p_attempt_id uuid, p_question_id text, p_selected_answer text)`: saves each answer; returns false if the deadline has already expired and the attempt was finalized.
 - `logos_td_student_submit_exam_attempt(p_attempt_id uuid)`: submits the student's own attempt; repeated calls return the existing final result.
