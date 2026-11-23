@@ -35,3 +35,13 @@ Implement student sign-in on the existing student portal using the agreed userna
 
 ## Current status
 Read-only review only. No student data import, auth account creation, database/RLS changes, or production changes have been made.
+
+## Progress update — 2026-11-24
+- Created isolated branch `stage-2R40-staging-project-isolation`; production and the existing deployment branch remain untouched.
+- Student and admin static portals now load a shared staging-only public configuration for project `rxuusshnsrpegwwktvii`. No production project reference remains in those portal files.
+- Added staging configuration isolation tests and enabled the portal-check workflow on this branch. GitHub Actions run 86 completed successfully, including JavaScript syntax checks and all existing import / assessment security tests.
+- Completed aggregate-only review of the Android backup and documented the field mapping in `docs/STAGING_STUDENT_BACKUP_FIELD_MAP.md`.
+- No student records, photos, payment records, attendance records, or Auth accounts were imported or changed.
+
+## Remaining gate before schema migration
+The existing staging `students.academic_session` column is NOT NULL, while the backup's `start` field is a month string and is not an academic-session label. The importer must not silently equate them. Confirm the academic-session value to assign during import, or explicitly approve a schema change that makes the field nullable and stores enrollment month separately. Also confirm the meaning of the source `fee` amount before it is used in any fee calculations.
