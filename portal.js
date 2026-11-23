@@ -1,10 +1,9 @@
-/* LOGOS Student Portal
- * Add your Supabase project URL and anon/public key below.
- * Never place a service-role key in browser code.
- */
-const SUPABASE_URL = "https://olfvvqokqjkxizmrwlhb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_dx8kazi3MnEcD4wmonDIZg_N7IUEqKF";
-const supabaseReady = window.supabase && SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY !== "YOUR_SUPABASE_ANON_KEY";
+/* LOGOS Student Portal: staging-only public configuration; never use a service-role key here. */
+const LOGOS_CONFIG = window.LOGOS_SUPABASE_CONFIG;
+const SUPABASE_URL = LOGOS_CONFIG?.url || "";
+const SUPABASE_ANON_KEY = LOGOS_CONFIG?.publishableKey || "";
+const STAGING_SUPABASE_URL = "https://rxuusshnsrpegwwktvii.supabase.co";
+const supabaseReady = Boolean(window.supabase && SUPABASE_URL === STAGING_SUPABASE_URL && SUPABASE_ANON_KEY.startsWith("sb_publishable_"));
 const sb = supabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const $ = (id)=>document.getElementById(id);
 const authPanel=$("auth-panel"),appPanel=$("app-panel"),viewContainer=$("view-container"),toast=$("toast");
