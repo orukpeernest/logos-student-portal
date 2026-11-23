@@ -32,6 +32,8 @@ jobs:
         run: node --check admin-portal.js
       - name: Check staging Supabase configuration isolation
         run: node staging-config.test.cjs
+      - name: Check student profile migration safety
+        run: node test-student-profile-migration.test.cjs
       - name: Syntax-check student import validator
         run: node --check student-import.js
       - name: Check student import validation tests
