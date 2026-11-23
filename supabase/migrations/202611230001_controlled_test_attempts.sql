@@ -652,8 +652,19 @@ BEGIN
 END;
 $function$;
 
+-- No direct question download or legacy client-authoritative submission after migration.
+-- Test questions are now returned only by the server-side start/resume RPC.
+REVOKE ALL ON FUNCTION public.logos_td_student_exam_questions(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.logos_td_student_submit_attempt(text, uuid, jsonb, integer) FROM PUBLIC, anon, authenticated;
+
 -- No browser/user execution of the privileged finalizer.
 REVOKE ALL ON FUNCTION public.logos_td_finalize_attempt_internal(uuid, boolean) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.logos_td_admin_configure_exam(text, text, timestamptz, timestamptz, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.logos_td_admin_set_results_released(text, boolean) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.logos_td_student_start_exam(text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.logos_td_student_save_exam_answer(uuid, text, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.logos_td_student_submit_exam_attempt(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.logos_td_student_attempt_detail(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.logos_td_finalize_expired_attempts() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_finalize_expired_attempts() TO service_role;
 
