@@ -49,7 +49,18 @@ admin$("assessment-upload-form").onsubmit=async e=>{
     };
     examId=findId(exam);
     if(!examId)throw new Error("The draft was created but its exam ID was not returned. No questions were uploaded.");
-    result.textContent="Draft created. Uploading "+questions.length+" test-only questions…";
+    const toIso=value=>value?new Date(value).toISOString():null;
+    const startsAt=toIso(String(fields.get("starts_at")||""));
+    const endsAt=toIso(String(fields.get("ends_at")||""));
+    if(startsAt&&endsAt&&new Date(endsAt)<=new Date(startsAt))throw new Error("Assessment closing time must be after its start time.");
+    await adminRpc("logos_td_admin_configure_exam",{
+      p_exam_id:examId,
+      p_academic_session:String(fields.get("academic_session")||"").trim(),
+      p_starts_at:startsAt,
+      p_ends_at:endsAt,
+      p_max_attempts:Number(fields.get("max_attempts")||1)
+    });
+    result.textContent="Draft scheduled. Uploading "+questions.length+" test-only questions…";
     for(let i=0;i<questions.length;i++){
       const question={...questions[i],exam_type:questions[i].exam_type||String(fields.get("assessment_period")).trim(),is_practice:false};
       const saved=await adminRpc("logos_td_admin_save_question",{p_question:question});
@@ -74,6 +85,18 @@ admin$("assessment-upload-form").onsubmit=async e=>{
   }finally{button.disabled=false}
 };
 
+admin$("exam-results-release").onsubmit=async e=>{
+  e.preventDefault();
+  const f=new FormData(e.currentTarget);
+  try{
+    const data=await adminRpc("logos_td_admin_set_results_released",{
+      p_exam_id:String(f.get("exam_id")).trim(),
+      p_released:String(f.get("released"))==="true"
+    });
+    setAdminStatus("Results visibility updated: "+JSON.stringify(data));
+    adminMsg("Results visibility updated.");
+  }catch(err){adminMsg(err.message||"Unable to update results visibility.")}
+};
 admin$("delete-question").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),id=String(f.get("question_id")).trim();if(!confirm("Delete question "+id+"? This action cannot be undone."))return;try{const ok=await adminRpc("logos_td_admin_delete_question",{p_question_id:id});setAdminStatus("Delete response: "+JSON.stringify(ok));adminMsg(ok?"Question deleted.":"Deletion was not confirmed.")}catch(err){adminMsg(err.message||"Delete failed.")}};
 admin$("student-backup-form").onsubmit=async e=>{
   e.preventDefault();
