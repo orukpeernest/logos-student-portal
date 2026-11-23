@@ -8,19 +8,20 @@ The migration and application changes are committed to the development branch on
 
 ## Deployment order
 
-1. Take and verify a current Supabase database backup.
-2. Review the SQL migration against the current live schema. Run it in a staging project first.
-3. Deploy the Edge Function:
+1. Schedule a maintenance window when no student is taking a live test. The migration revokes the old browser-side question-fetch and submission RPCs; deploying it while an old-version test is in progress could prevent that old client from submitting.
+2. Take and verify a current Supabase database backup.
+3. Review the SQL migration against the current live schema. Run it in a staging project first.
+4. Deploy the Edge Function:
    `supabase functions deploy finalize-expired-tests --no-verify-jwt`
-4. Set Edge Function secrets in Supabase:
+5. Set Edge Function secrets in Supabase:
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `CRON_SECRET` (generate a long random value; do not commit it)
-5. Configure a trusted external scheduler to POST to:
+6. Configure a trusted external scheduler to POST to:
    `https://<project-ref>.supabase.co/functions/v1/finalize-expired-tests`
    Include header `x-cron-secret: <CRON_SECRET>`. Run at least once per minute for near-real-time expiry finalization.
-6. Verify a successful worker response reports `ok: true` and a finalized count. Also verify an expired attempt is finalized while the student browser is closed.
-7. Only then enable the updated student/admin frontend in the test environment.
+7. Verify a successful worker response reports `ok: true` and a finalized count. Also verify an expired attempt is finalized while the student browser is closed.
+8. Only then enable the updated student/admin frontend in the test environment.
 
 The scheduler needs only the function endpoint and CRON_SECRET. The service-role key remains inside Supabase Edge Function secrets and is never sent to the scheduler or browser.
 
