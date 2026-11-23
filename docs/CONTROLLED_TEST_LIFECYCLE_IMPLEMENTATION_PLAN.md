@@ -55,7 +55,7 @@ Migration must be additive and preserve historic submitted attempts. Before writ
 - A server-authoritative start/retrieve RPC, save-answer RPC, and idempotent submit/finalize RPC.
 - A scheduler/worker that finds expired in-progress attempts and invokes the same safe finalization logic. Scheduler choice must be confirmed from actual deployment capabilities; do not assume an extension exists.
 - Results RPC updates that expose only information allowed by admin result-release policy.
-- A transactional bulk-upload RPC is recommended so a failed upload cannot leave a half-populated draft. Until implemented, the UI must clearly identify partial uploads and keep them unreleased.
+- A transactional bulk-upload RPC is now included in the migration and used by the admin UI. Verify rollback behavior in staging before production.
 
 ## Frontend changes after backend contract is fixed
 
