@@ -11,10 +11,69 @@ function showLogin(){loginPanel.classList.remove("hidden");adminApp.classList.ad
 let adminVerificationToken=0;
 async function verifyAdmin(user){const token=++adminVerificationToken;try{const allowed=await adminRpc("is_logos_admin");if(token!==adminVerificationToken)return;if(allowed!==true)throw new Error("Your account is not authorized as a LOGOS administrator.");showAdmin();admin$("admin-status").textContent=user?.email||"Authorized admin";setAdminStatus("Administrator permission verified. Actions are checked by Supabase.");}catch(e){if(token!==adminVerificationToken)return;await adminSb.auth.signOut();showLogin();adminMsg(e.message||"Admin verification failed.")}}
 admin$("admin-login-form").onsubmit=async e=>{e.preventDefault();const button=admin$("admin-login-btn");button.disabled=true;try{const {data,error}=await adminSb.auth.signInWithPassword({email:admin$("admin-email").value.trim(),password:admin$("admin-password").value});if(error)throw error;setAdminStatus("Checking administrator access…")}catch(err){adminMsg(err.message||"Sign-in failed.")}finally{button.disabled=false}};
-admin$("create-exam").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const data=await adminRpc("logos_td_admin_create_exam",{p_title:String(f.get("title")).trim(),p_subject:String(f.get("subject")).trim(),p_exam_type:String(f.get("exam_type")).trim(),p_duration_minutes:Number(f.get("duration_minutes"))});admin$("created-exam").textContent=JSON.stringify(data,null,2);setAdminStatus("Exam created. Copy the returned exam ID for attaching questions and releasing it.");adminMsg("Examination created.")}catch(err){adminMsg(err.message||"Exam creation failed.")}};
+
 admin$("save-question").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),image=String(f.get("image_url")||"").trim();if(image&&!image.startsWith("https://")){adminMsg("Question image URL must use HTTPS.");return}const q={subject:String(f.get("subject")).trim(),topic:String(f.get("topic")||"").trim(),exam_type:String(f.get("exam_type")||"").trim(),exam_year:f.get("exam_year")?Number(f.get("exam_year")):null,question_text:String(f.get("question_text")).trim(),option_a:String(f.get("option_a")).trim(),option_b:String(f.get("option_b")).trim(),option_c:String(f.get("option_c")).trim(),option_d:String(f.get("option_d")).trim(),correct_answer:String(f.get("correct_answer")).trim().toUpperCase(),explanation:String(f.get("explanation")||"").trim(),image_url:image||null,is_practice:f.get("is_practice")==="true"};const id=String(f.get("id")||"").trim();if(id)q.id=id;try{const data=await adminRpc("logos_td_admin_save_question",{p_question:q});admin$("saved-question").textContent=JSON.stringify(data,null,2);setAdminStatus("Question saved. Returned data may contain its ID.");adminMsg("Question saved.")}catch(err){adminMsg(err.message||"Save question failed.")}};
-admin$("attach-question").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const ok=await adminRpc("logos_td_admin_attach_question",{p_exam_id:String(f.get("exam_id")).trim(),p_question_id:String(f.get("question_id")).trim(),p_position:Number(f.get("position"))});setAdminStatus("Attach question returned: "+JSON.stringify(ok));adminMsg(ok?"Question attached.":"Attachment was not confirmed.")}catch(err){adminMsg(err.message||"Attach failed.")}};
+
 admin$("exam-status").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const data=await adminRpc("logos_td_admin_set_exam_status",{p_exam_id:String(f.get("exam_id")).trim(),p_status:String(f.get("status")).trim()});setAdminStatus("Exam status response: "+JSON.stringify(data));adminMsg("Status update response received.")}catch(err){adminMsg(err.message||"Status update failed.")}};
+
+admin$("assessment-upload-form").onsubmit=async e=>{
+  e.preventDefault();
+  const form=e.currentTarget,fields=new FormData(form),file=admin$("assessment-question-file").files?.[0];
+  const result=admin$("assessment-upload-result"),button=admin$("assessment-upload-submit");
+  if(!file){result.textContent="Choose the assessment question JSON file first.";return}
+  if(file.size>10*1024*1024){result.textContent="The question file exceeds the 10 MB limit.";return}
+  button.disabled=true;result.textContent="Validating the assessment question file…";
+  let questions;
+  try{
+    if(!window.LOGOSTestQuestionImport)throw new Error("Test question upload validator did not load.");
+    questions=window.LOGOSTestQuestionImport.parse(await file.text(),String(fields.get("subject")).trim());
+    if(questions.length>500)throw new Error("A single assessment upload is limited to 500 questions.");
+  }catch(err){result.textContent=err.message||"Question file validation failed.";button.disabled=false;return}
+  let examId="",attached=0;
+  try{
+    result.textContent="Creating a locked draft assessment…";
+    const exam=await adminRpc("logos_td_admin_create_exam",{
+      p_title:String(fields.get("title")).trim(),
+      p_subject:String(fields.get("subject")).trim(),
+      p_exam_type:String(fields.get("assessment_period")).trim(),
+      p_duration_minutes:Number(fields.get("duration_minutes"))
+    });
+    const findId=value=>{
+      if(typeof value==="string")return value;
+      if(Array.isArray(value))return findId(value[0]);
+      if(value&&typeof value==="object"){
+        for(const key of ["id","exam_id","question_id"])if(value[key]!==undefined&&value[key]!==null)return String(value[key]);
+        for(const key of ["data","result","exam","question"])if(value[key]!==undefined){const found=findId(value[key]);if(found)return found}
+      }
+      return "";
+    };
+    examId=findId(exam);
+    if(!examId)throw new Error("The draft was created but its exam ID was not returned. No questions were uploaded.");
+    result.textContent="Draft created. Uploading "+questions.length+" test-only questions…";
+    for(let i=0;i<questions.length;i++){
+      const question={...questions[i],exam_type:questions[i].exam_type||String(fields.get("assessment_period")).trim(),is_practice:false};
+      const saved=await adminRpc("logos_td_admin_save_question",{p_question:question});
+      const questionId=findId(saved);
+      if(!questionId)throw new Error("Question "+(i+1)+" was saved but the database did not return its question ID. Stop and inspect the draft before release.");
+      const attachedOk=await adminRpc("logos_td_admin_attach_question",{
+        p_exam_id:examId,p_question_id:questionId,p_position:i+1
+      });
+      if(attachedOk!==true)throw new Error("Question "+(i+1)+" was not confirmed as attached.");
+      attached++;
+      result.textContent="Uploading test questions: "+attached+" / "+questions.length;
+    }
+    result.textContent="Draft saved successfully. "+attached+" test-only questions attached. Students cannot access this assessment until you release it. Draft exam ID: "+examId;
+    setAdminStatus("Draft assessment created with "+attached+" uploaded test questions. It has not been released.");
+    adminMsg("Draft assessment and questions saved.");
+    form.reset();
+  }catch(err){
+    const partial=examId?" Draft exam ID: "+examId+". Questions attached before the error: "+attached+" / "+questions.length+". Keep this assessment as a draft and inspect it before releasing.":"";
+    result.textContent=(err.message||"Assessment upload failed.")+partial;
+    setAdminStatus("Assessment upload did not finish. Do not release the draft until it has been checked.");
+    adminMsg("Assessment upload incomplete.");
+  }finally{button.disabled=false}
+};
+
 admin$("delete-question").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),id=String(f.get("question_id")).trim();if(!confirm("Delete question "+id+"? This action cannot be undone."))return;try{const ok=await adminRpc("logos_td_admin_delete_question",{p_question_id:id});setAdminStatus("Delete response: "+JSON.stringify(ok));adminMsg(ok?"Question deleted.":"Deletion was not confirmed.")}catch(err){adminMsg(err.message||"Delete failed.")}};
 admin$("student-backup-form").onsubmit=async e=>{
   e.preventDefault();
