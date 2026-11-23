@@ -36,6 +36,8 @@ jobs:
         run: node --check test-question-import.js
       - name: Check Test Driller question import tests
         run: node test-question-import.test.cjs
+      - name: Check controlled assessment migration invariants
+        run: node test-controlled-assessment-migration.test.cjs
       - name: Check required portal files
         run: |
           test -s student-portal.html
@@ -46,4 +48,5 @@ jobs:
           test -s student-import.js
           test -s test-question-import.js
           test -s test-question-import.test.cjs
+          test -s test-controlled-assessment-migration.test.cjs
           test -s TEST_DRILLER_ASSESSMENT_UPLOAD_SPEC.md
