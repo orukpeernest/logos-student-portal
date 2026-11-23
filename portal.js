@@ -12,7 +12,7 @@ let currentView="dashboard",practiceItems=[],practiceAnswers={},practiceChecked=
 function notify(msg){toast.textContent=msg;toast.style.display="block";setTimeout(()=>toast.style.display="none",4000)}
 function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]))}
 function showAuth(){authPanel.classList.remove("hidden");appPanel.classList.add("hidden");$("signout").classList.add("hidden")}
-function showApp(user){authPanel.classList.add("hidden");appPanel.classList.remove("hidden");$("signout").classList.remove("hidden");$("auth-status").textContent=user?.email||"Signed in";switchView("dashboard")}
+function showApp(user){const wasHidden=appPanel.classList.contains("hidden");authPanel.classList.add("hidden");appPanel.classList.remove("hidden");$("signout").classList.remove("hidden");$("auth-status").textContent=user?.email||"Signed in";if(wasHidden)switchView("dashboard")}
 async function rpc(name,args={}){if(!sb)throw new Error("Portal setup is incomplete. Supabase URL and anon key have not been configured.");const {data,error}=await sb.rpc(name,args);if(error)throw error;return data}
 function normalizeList(data){if(Array.isArray(data))return data;if(data&&Array.isArray(data.questions))return data.questions;if(data&&Array.isArray(data.items))return data.items;return data?[data]:[]}
 function pick(obj,keys,fallback=""){for(const k of keys)if(obj?.[k]!==undefined&&obj[k]!==null)return obj[k];return fallback}
