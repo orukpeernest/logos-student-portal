@@ -36,9 +36,17 @@ async function updateTestQuestions(){
   if(button)button.disabled=true;
   if(status)status.textContent="Checking for assessments released by LOGOS TUTORIALS…";
   try{
-    const released=normalizeList(await rpc("logos_td_student_available_exams"));
-    examList=released;examQuestionCache={};renderExams();
-    const message="Update complete: "+released.length+" released assessment(s) found. Open an assessment and press Start test to begin your server-timed attempt and receive its questions.";
+    const [releasedData,activeData]=await Promise.all([
+      rpc("logos_td_student_available_exams"),
+      rpc("logos_td_student_active_attempts")
+    ]);
+    const merged=new Map();
+    normalizeList(releasedData).forEach(exam=>merged.set(String(pick(exam,["id","exam_id"],"")),exam));
+    normalizeList(activeData).forEach(exam=>merged.set(String(pick(exam,["id","exam_id"],"")),exam));
+    examList=[...merged.values()].filter(exam=>pick(exam,["id","exam_id"],""));
+    examQuestionCache={};renderExams();
+    const activeCount=normalizeList(activeData).length;
+    const message="Update complete: "+normalizeList(releasedData).length+" released assessment(s) found and "+activeCount+" active attempt(s) available to resume. Press Start test to begin or resume.";
     const target=$("test-update-status");if(target)target.textContent=message;
     notify(message);
   }catch(e){
