@@ -1,7 +1,12 @@
-/* LOGOS Admin portal: browser-side public key only; all privileged actions are RPC-gated. */
-const ADMIN_SUPABASE_URL="https://olfvvqokqjkxizmrwlhb.supabase.co";
-const ADMIN_SUPABASE_KEY="sb_publishable_dx8kazi3MnEcD4wmonDIZg_N7IUEqKF";
-const adminSb=window.supabase.createClient(ADMIN_SUPABASE_URL,ADMIN_SUPABASE_KEY);
+/* LOGOS Admin portal: staging-only public key; privileged actions remain RPC-gated. */
+const ADMIN_CONFIG=window.LOGOS_SUPABASE_CONFIG;
+const ADMIN_STAGING_URL="https://rxuusshnsrpegwwktvii.supabase.co";
+if(!window.supabase||ADMIN_CONFIG?.url!==ADMIN_STAGING_URL||!ADMIN_CONFIG?.publishableKey?.startsWith("sb_publishable_")){
+  const panel=document.getElementById("admin-login");
+  if(panel)panel.textContent="Admin portal configuration is missing or does not target the approved staging project.";
+  throw new Error("LOGOS admin portal stopped: valid staging configuration is required.");
+}
+const adminSb=window.supabase.createClient(ADMIN_CONFIG.url,ADMIN_CONFIG.publishableKey);
 const admin$=id=>document.getElementById(id),loginPanel=admin$("admin-login"),adminApp=admin$("admin-app"),adminToast=admin$("admin-toast");
 function adminMsg(message){adminToast.textContent=message;adminToast.style.display="block";setTimeout(()=>adminToast.style.display="none",4500)}
 function setAdminStatus(message){admin$("admin-message").textContent=message}
