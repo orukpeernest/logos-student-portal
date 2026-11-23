@@ -1,0 +1,18 @@
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const vm=require("node:vm");
+const context={window:{}};
+vm.runInNewContext(fs.readFileSync("student-import.js","utf8"),context);
+const inspect=context.window.LOGOSStudentImport.inspectBackup;
+const valid=inspect({students:[{id:"app-1",surname:"Okoro",reg:"LGS/26/001"},{id:"app-2",surname:"Adebayo",reg:"LGS/26/002"}]});
+assert.equal(valid.ok,true);
+assert.equal(valid.total,2);
+assert.equal(valid.valid,2);
+const duplicate=inspect({students:[{id:"app-1",surname:"Okoro",reg:"LGS/26/001"},{id:"app-2",surname:"Okoro",reg:"ABC/16/001"}]});
+assert.equal(duplicate.ok,false);
+assert.equal(duplicate.duplicateLogins,1);
+const malformed=inspect({students:[{id:"app-1",surname:"",reg:"123"}]});
+assert.equal(malformed.invalid,1);
+assert.equal(malformed.issues[0].problems.length,3);
+assert.equal(inspect({records:[]}).ok,false);
+process.stdout.write("Student import validation tests passed.\\n");
