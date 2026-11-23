@@ -24,45 +24,6 @@ AS $function$
   );
 $function$;
 
-CREATE OR REPLACE FUNCTION public.logos_td_admin_attach_question(
-  p_exam_id text, p_question_id text, p_position integer
-)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO ''
-AS $function$
-DECLARE
-  v_rows integer;
-BEGIN
-  IF NOT public.is_logos_admin() THEN
-    RAISE EXCEPTION 'Administrator access required';
-  END IF;
-  IF p_position IS NULL OR p_position <= 0 THEN
-    RAISE EXCEPTION 'Question position must be positive';
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM public.logos_td_exams
-    WHERE id::text = p_exam_id AND status = 'draft'
-  ) THEN
-    RAISE EXCEPTION 'Only draft exams can be edited';
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM public.logos_td_questions
-    WHERE id::text = p_question_id AND is_practice = false
-  ) THEN
-    RAISE EXCEPTION 'Only official questions can be assigned';
-  END IF;
-  INSERT INTO public.logos_td_exam_questions (exam_id, question_id, position)
-  SELECT e.id, q.id, p_position
-  FROM public.logos_td_exams e
-  CROSS JOIN public.logos_td_questions q
-  WHERE e.id::text = p_exam_id AND q.id::text = p_question_id;
-  GET DIAGNOSTICS v_rows = ROW_COUNT;
-  RETURN v_rows = 1;
-END;
-$function$;
-
 CREATE OR REPLACE FUNCTION public.logos_td_admin_delete_question(p_question_id text)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -254,8 +215,9 @@ $function$;
 REVOKE ALL ON FUNCTION public.is_logos_admin() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_logos_admin() TO authenticated;
 
-REVOKE ALL ON FUNCTION public.logos_td_admin_attach_question(text, text, integer) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.logos_td_admin_attach_question(text, text, integer) TO authenticated;
+-- The legacy question-attachment RPC is intentionally not restored.
+-- Controlled assessments must use the atomic test-specific bulk-upload RPC.
+REVOKE ALL ON FUNCTION public.logos_td_admin_attach_question(text, text, integer) FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON FUNCTION public.logos_td_admin_delete_question(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.logos_td_admin_delete_question(text) TO authenticated;
