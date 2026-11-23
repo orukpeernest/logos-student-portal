@@ -522,7 +522,7 @@ BEGIN
   END IF;
   IF now() >= v_attempt.expires_at THEN
     PERFORM public.logos_td_finalize_attempt_internal(v_attempt.id, true);
-    RAISE EXCEPTION 'Time has expired; your attempt has been submitted';
+    RETURN false;
   END IF;
 
   BEGIN
