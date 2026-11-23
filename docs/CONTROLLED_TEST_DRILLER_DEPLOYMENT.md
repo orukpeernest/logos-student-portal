@@ -47,7 +47,7 @@ The legacy student question-download and client-authoritative submit RPCs are re
 
 ## Known limitations to verify before production
 
-- The assessment upload currently creates a draft and attaches questions sequentially, not in one transaction. A partial upload remains a draft and must never be released until inspected. A transactional bulk-upload RPC is still recommended.
+- The assessment upload now calls a transactional bulk-upload RPC. If any question is invalid, the whole question batch rolls back and the assessment remains an empty draft. The draft must still remain unreleased until the admin verifies the upload.
 - The current admin interface configures academic session, start/end availability, maximum attempts and results release, but it still needs full browser testing against the migrated database.
 - The scheduler is not configured by this repository commit. Until it is actually deployed and observed finalizing attempts offline, unattended automatic submission is NOT production-verified.
 - The old summary result function is updated to hide new results until the admin releases them. Historical exams keep the default visible setting.
