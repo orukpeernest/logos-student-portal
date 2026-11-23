@@ -25,6 +25,7 @@
     if(image&&!/^https:\/\//i.test(image))throw new Error("Question "+(index+1)+" has an image URL that is not HTTPS.");
     const subject=clean(raw.subject)||clean(defaultSubject);
     if(!subject)throw new Error("Question "+(index+1)+" is missing its subject.");
+    if(clean(defaultSubject)&&subject!==clean(defaultSubject))throw new Error("Question "+(index+1)+" subject does not match the assessment subject.");
     const year=raw.exam_year===undefined||raw.exam_year===null||raw.exam_year===""?null:Number(raw.exam_year);
     if(year!==null&&(!Number.isInteger(year)||year<1900||year>2200))throw new Error("Question "+(index+1)+" has an invalid exam year.");
     return {
