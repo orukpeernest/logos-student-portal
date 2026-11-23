@@ -11,7 +11,7 @@ assert.equal(valid.valid,2);
 const duplicate=inspect({students:[{id:"app-1",surname:"Okoro",reg:"LGS/26/001"},{id:"app-2",surname:"Okoro",reg:"ABC/16/001"}]});
 assert.equal(duplicate.ok,false);
 assert.equal(duplicate.duplicateLogins,1);
-const malformed=inspect({students:[{id:"app-1",surname:"",reg:"123"}]});
+const malformed=inspect({students:[{surname:"",reg:"123"}]});
 assert.equal(malformed.invalid,1);
 assert.equal(malformed.issues[0].problems.length,3);
 assert.equal(inspect({records:[]}).ok,false);
