@@ -82,3 +82,46 @@ Migration must be additive and preserve historic submitted attempts. Before writ
 - Correct + answered-wrong + unanswered equals total; wrong_count equals answered-wrong + unanswered.
 - Historical attempts remain readable and unchanged.
 - Students cannot see answers/results before the administrator's configured release.
+
+
+## Additional facts confirmed from the latest database and frontend inspection
+
+### Constraints and indexes to preserve
+
+- `logos_td_attempts_student_id_client_attempt_id_key` uniquely enforces one record per student/client attempt ID.
+- `logos_td_attempts_exam_id_fkey` is RESTRICT; an exam with historical attempts cannot be deleted.
+- `logos_td_exam_questions` has primary key (exam_id, question_id) and unique (exam_id, position).
+- `logos_td_exam_questions_question_id_fkey` is RESTRICT; attached questions cannot be deleted.
+- Exam status is constrained to draft/released/closed.
+- Exam duration must be positive.
+- Exam and question subject are constrained to: English, Mathematics, Physics, Chemistry, Biology, Government, CRS, Literature, Economics, Commerce.
+- Question correct_answer is constrained to A/B/C/D.
+- Existing indexes include attempt lookup by exam/student, exam status/released_at, and question practice/subject indexes. Do not drop or rename these as part of the upgrade.
+
+### Confirmed current administrator upload implementation
+
+- Admin uploads a JSON file (maximum 10 MB, maximum 500 questions).
+- The browser validates the file and forces `is_practice=false`.
+- It creates a draft using `logos_td_admin_create_exam`, then sequentially saves each question and attaches it using `logos_td_admin_attach_question`.
+- This is not one database transaction. If a later question fails, the draft remains with the already attached subset. The UI reports the draft ID and attached count and instructs the admin not to release it.
+- The current form includes title, subject, Weekly/Monthly period, duration and question file.
+- It does NOT yet include a start date/time, end/closing date/time, academic session, or result-release control.
+- Release is separate through the admin status form. The current release RPC checks that at least one attached question exists and all attached questions are exam-only.
+- The generic single-question editor and exam attach form remain present; they are separate admin functions and do not change the agreed direct-upload workflow.
+
+### Confirmed current student workflow limitations
+
+- The UPDATE TEST QUESTIONS button is implemented and retrieves released exams and question lists.
+- Starting an exam still calls the public released-question RPC directly, creates a UUID in the browser, and starts a browser-only countdown.
+- The existing question RPC can be called repeatedly for any released exam and has no server-side attempt/session gate.
+- The current browser timer submits only when the page is running. It cannot guarantee unattended auto-submission after the student closes the browser.
+- The existing submit function stores no per-question answer rows and trusts the browser-supplied duration.
+- The existing results RPC exposes summary results immediately; there is no confirmed admin-controlled result-release field in the inspected schema/function set.
+
+### Additional migration safety requirement
+
+The latest SQL output did not include the definition of `logos_td_admin_save_question`, nor the function ACLs and RLS/grants for any future attempt-answer table. Before generating the final executable migration, inspect that function and the relevant grants. New answer rows must remain inaccessible through direct table access and be exposed only through authenticated, identity-checked RPCs. Do not add broad authenticated SELECT/INSERT policies to the answer table.
+
+### Scheduler decision
+
+The project currently has neither `pg_cron` nor `pg_net` installed. Do not install an extension or assume a scheduled worker is available. The implementation needs a separately deployed server-side worker (for example, a Supabase Edge Function invoked by a trusted scheduler) with a secret held only server-side. The worker must call a narrowly scoped finalization routine that finds and finalizes expired attempts. A client-callable function must never be allowed to finalize other students' attempts. Production acceptance requires proof that the scheduler actually runs while the student is offline.
