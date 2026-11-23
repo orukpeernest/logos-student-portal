@@ -21,7 +21,13 @@
       <button type="submit" class="primary" id="auth-submit">Sign in</button>
       <button type="button" class="text-button" id="reset-password">Forgot password?</button>
     </form>
-    <p class="hint">Your student account must be registered and linked by LOGOS TUTORIALS.</p>
+    <form id="recovery-form" class="hidden">
+      <label>New password<input type="password" id="new-password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters"></label>
+      <label>Confirm new password<input type="password" id="confirm-password" autocomplete="new-password" minlength="8" required placeholder="Confirm password"></label>
+      <button type="submit" class="primary" id="recovery-submit">Update password</button>
+      <button type="button" class="text-button" id="recovery-cancel">Back to sign in</button>
+    </form>
+    <p class="hint" id="auth-hint">Your student account must be registered and linked by LOGOS TUTORIALS.</p>
   </section>
   <section id="app-panel" class="hidden">
     <div class="welcome"><div><div class="eyebrow">STUDENT LEARNING HUB</div><h1>Keep moving forward.</h1><p>Practice, prepare, and track your progress.</p></div></div>
