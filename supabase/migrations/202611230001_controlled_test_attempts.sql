@@ -435,6 +435,50 @@ END;
 $function$;
 
 
+
+CREATE OR REPLACE FUNCTION public.logos_td_student_active_attempts()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_student_id public.students.id%TYPE;
+  v_result jsonb;
+BEGIN
+  SELECT id INTO v_student_id
+  FROM public.students
+  WHERE auth_user_id = auth.uid()
+  LIMIT 1;
+  IF v_student_id IS NULL THEN
+    RAISE EXCEPTION 'Student account not linked';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.started_at DESC), '[]'::jsonb)
+  INTO v_result
+  FROM (
+    SELECT
+      e.id,
+      e.title,
+      e.subject,
+      e.exam_type,
+      e.duration_minutes,
+      e.status,
+      e.released_at,
+      e.starts_at,
+      e.ends_at,
+      a.started_at,
+      a.expires_at,
+      true AS has_in_progress_attempt
+    FROM public.logos_td_attempts a
+    JOIN public.logos_td_exams e ON e.id = a.exam_id
+    WHERE a.student_id = v_student_id::text
+      AND a.status = 'in_progress'
+  ) r;
+  RETURN v_result;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.logos_td_student_start_exam(p_exam_id text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -771,6 +815,7 @@ REVOKE ALL ON FUNCTION public.logos_td_finalize_attempt_internal(uuid, boolean) 
 REVOKE ALL ON FUNCTION public.logos_td_admin_configure_exam(text, text, timestamptz, timestamptz, integer) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.logos_td_admin_bulk_upload_exam_questions(text, jsonb) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.logos_td_admin_set_results_released(text, boolean) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.logos_td_student_active_attempts() FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.logos_td_student_start_exam(text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.logos_td_student_save_exam_answer(uuid, text, text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.logos_td_student_submit_exam_attempt(uuid) FROM PUBLIC, anon;
@@ -781,6 +826,7 @@ GRANT EXECUTE ON FUNCTION public.logos_td_finalize_expired_attempts() TO service
 GRANT EXECUTE ON FUNCTION public.logos_td_admin_configure_exam(text, text, timestamptz, timestamptz, integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_admin_bulk_upload_exam_questions(text, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_admin_set_results_released(text, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.logos_td_student_active_attempts() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_student_start_exam(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_student_save_exam_answer(uuid, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_student_submit_exam_attempt(uuid) TO authenticated;
