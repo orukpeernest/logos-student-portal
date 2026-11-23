@@ -11,15 +11,22 @@ ALTER TABLE public.logos_td_exams
   ADD COLUMN IF NOT EXISTS max_attempts integer NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS results_released boolean NOT NULL DEFAULT true;
 
-ALTER TABLE public.logos_td_exams
-  ADD CONSTRAINT logos_td_exams_valid_window_check
-  CHECK (starts_at IS NULL OR ends_at IS NULL OR ends_at > starts_at)
-  NOT VALID;
-
-ALTER TABLE public.logos_td_exams
-  ADD CONSTRAINT logos_td_exams_max_attempts_check
-  CHECK (max_attempts > 0)
-  NOT VALID;
+DO $constraints$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'logos_td_exams_valid_window_check') THEN
+    ALTER TABLE public.logos_td_exams
+      ADD CONSTRAINT logos_td_exams_valid_window_check
+      CHECK (starts_at IS NULL OR ends_at IS NULL OR ends_at > starts_at)
+      NOT VALID;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'logos_td_exams_max_attempts_check') THEN
+    ALTER TABLE public.logos_td_exams
+      ADD CONSTRAINT logos_td_exams_max_attempts_check
+      CHECK (max_attempts > 0)
+      NOT VALID;
+  END IF;
+END;
+$constraints$;
 
 ALTER TABLE public.logos_td_attempts
   ALTER COLUMN submitted_at DROP NOT NULL,
@@ -29,19 +36,26 @@ ALTER TABLE public.logos_td_attempts
   ADD COLUMN IF NOT EXISTS expires_at timestamptz,
   ADD COLUMN IF NOT EXISTS auto_submitted boolean NOT NULL DEFAULT false;
 
-ALTER TABLE public.logos_td_attempts
-  ADD CONSTRAINT logos_td_attempts_status_check
-  CHECK (status IN ('in_progress', 'submitted', 'auto_submitted'))
-  NOT VALID;
-
-ALTER TABLE public.logos_td_attempts
-  ADD CONSTRAINT logos_td_attempts_lifecycle_check
-  CHECK (
-    (status = 'in_progress' AND submitted_at IS NULL AND started_at IS NOT NULL AND expires_at IS NOT NULL)
-    OR
-    (status IN ('submitted', 'auto_submitted') AND submitted_at IS NOT NULL)
-  )
-  NOT VALID;
+DO $constraints$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'logos_td_attempts_status_check') THEN
+    ALTER TABLE public.logos_td_attempts
+      ADD CONSTRAINT logos_td_attempts_status_check
+      CHECK (status IN ('in_progress', 'submitted', 'auto_submitted'))
+      NOT VALID;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'logos_td_attempts_lifecycle_check') THEN
+    ALTER TABLE public.logos_td_attempts
+      ADD CONSTRAINT logos_td_attempts_lifecycle_check
+      CHECK (
+        (status = 'in_progress' AND submitted_at IS NULL AND started_at IS NOT NULL AND expires_at IS NOT NULL)
+        OR
+        (status IN ('submitted', 'auto_submitted') AND submitted_at IS NOT NULL)
+      )
+      NOT VALID;
+  END IF;
+END;
+$constraints$;
 
 -- Historic rows are already submitted; explicitly label them without changing their timestamps.
 UPDATE public.logos_td_attempts
@@ -208,8 +222,12 @@ BEGIN
 
   IF FOUND THEN
     IF now() >= v_attempt.expires_at THEN
-      PERFORM public.logos_td_finalize_attempt_internal(v_attempt.id, true);
-      RAISE EXCEPTION 'Your previous attempt has expired and has been submitted';
+      v_payload := public.logos_td_finalize_attempt_internal(v_attempt.id, true);
+      RETURN jsonb_build_object(
+        'expired', true,
+        'attempt', v_payload,
+        'message', 'Your previous attempt expired and has been submitted'
+      );
     END IF;
     SELECT COALESCE(jsonb_agg(
       jsonb_build_object(
@@ -414,7 +432,7 @@ DECLARE
   v_id uuid;
   v_count integer := 0;
 BEGIN
-  IF current_user <> 'service_role' THEN
+  IF COALESCE(auth.role(), '') <> 'service_role' THEN
     RAISE EXCEPTION 'Trusted scheduler access required';
   END IF;
 
