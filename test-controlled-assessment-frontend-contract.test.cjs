@@ -10,7 +10,7 @@ const migration = fs.readFileSync(
 
 function hasRpcCall(source, name, args) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const call = new RegExp('rpc\\("' + escaped + '"\\s*,\\s*\\{([\\s\\S]*?)\\}\\)', "m");
+  const call = new RegExp('(?:adminRpc|rpc)\\("' + escaped + '"\\s*,\\s*\\{([\\s\\S]*?)\\}\\)', "m");
   const match = source.match(call);
   assert.ok(match, "frontend must call " + name);
   for (const arg of args) {
