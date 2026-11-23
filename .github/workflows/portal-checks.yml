@@ -1,0 +1,30 @@
+name: Student Portal Checks
+
+on:
+  push:
+    branches:
+      - stage-2R37-student-portal-frontend
+  pull_request:
+    branches:
+      - stage-2R37-student-portal-frontend
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax-check portal JavaScript
+        run: node --check portal.js
+      - name: Syntax-check website JavaScript
+        run: node --check script.js
+      - name: Check required portal files
+        run: |
+          test -s student-portal.html
+          test -s portal.css
+          test -s portal.js
