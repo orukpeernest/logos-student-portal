@@ -37,17 +37,8 @@ async function updateTestQuestions(){
   if(status)status.textContent="Checking for assessments released by LOGOS TUTORIALS…";
   try{
     const released=normalizeList(await rpc("logos_td_student_available_exams"));
-    const downloaded={};let totalQuestions=0,failed=0;
-    for(const exam of released){
-      const id=String(pick(exam,["id","exam_id"],""));
-      if(!id)continue;
-      try{
-        const questions=normalizeList(await rpc("logos_td_student_exam_questions",{p_exam_id:id}));
-        downloaded[id]=questions;totalQuestions+=questions.length;
-      }catch(_){failed++}
-    }
-    examList=released;examQuestionCache=downloaded;renderExams();
-    const message="Update complete: "+released.length+" released assessment(s), "+totalQuestions+" question(s) downloaded."+(failed?" "+failed+" assessment(s) could not be downloaded; try updating again.":"");
+    examList=released;examQuestionCache={};renderExams();
+    const message="Update complete: "+released.length+" released assessment(s) found. Open an assessment and press Start test to begin your server-timed attempt and receive its questions.";
     const target=$("test-update-status");if(target)target.textContent=message;
     notify(message);
   }catch(e){
