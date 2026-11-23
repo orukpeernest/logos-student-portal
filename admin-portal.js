@@ -16,5 +16,25 @@ admin$("save-question").onsubmit=async e=>{e.preventDefault();const f=new FormDa
 admin$("attach-question").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const ok=await adminRpc("logos_td_admin_attach_question",{p_exam_id:String(f.get("exam_id")).trim(),p_question_id:String(f.get("question_id")).trim(),p_position:Number(f.get("position"))});setAdminStatus("Attach question returned: "+JSON.stringify(ok));adminMsg(ok?"Question attached.":"Attachment was not confirmed.")}catch(err){adminMsg(err.message||"Attach failed.")}};
 admin$("exam-status").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const data=await adminRpc("logos_td_admin_set_exam_status",{p_exam_id:String(f.get("exam_id")).trim(),p_status:String(f.get("status")).trim()});setAdminStatus("Exam status response: "+JSON.stringify(data));adminMsg("Status update response received.")}catch(err){adminMsg(err.message||"Status update failed.")}};
 admin$("delete-question").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),id=String(f.get("question_id")).trim();if(!confirm("Delete question "+id+"? This action cannot be undone."))return;try{const ok=await adminRpc("logos_td_admin_delete_question",{p_question_id:id});setAdminStatus("Delete response: "+JSON.stringify(ok));adminMsg(ok?"Question deleted.":"Deletion was not confirmed.")}catch(err){adminMsg(err.message||"Delete failed.")}};
+admin$("student-backup-form").onsubmit=async e=>{
+  e.preventDefault();
+  const file=admin$("student-backup-file").files?.[0],result=admin$("student-backup-result"),button=admin$("student-backup-check");
+  if(!file){result.textContent="Choose a JSON backup file first.";return}
+  if(file.size>20*1024*1024){result.textContent="The selected file is larger than the 20 MB validation limit.";return}
+  button.disabled=true;result.textContent="Reading and validating backup…";
+  try{
+    const payload=JSON.parse(await file.text());
+    if(!window.LOGOSStudentImport)throw new Error("Student backup validator did not load.");
+    const report=window.LOGOSStudentImport.inspectBackup(payload);
+    if(!report.error){
+      const lines=["Backup structure: "+(report.ok?"valid":"needs correction"),"Student records found: "+report.total,"Records passing checks: "+report.valid,"Records with issues: "+report.invalid,"Duplicate generated usernames: "+report.duplicateLogins];
+      report.issues.slice(0,8).forEach(issue=>lines.push("Row "+issue.row+": "+issue.problems.join("; ")));
+      if(report.issues.length>8)lines.push("…and "+(report.issues.length-8)+" more row(s) with issues.");
+      lines.push("No records have been uploaded or changed. Server-side import is a separate step.");
+      result.textContent=lines.join("\\n");
+    }else result.textContent=report.error;
+  }catch(err){result.textContent=err instanceof SyntaxError?"The selected file is not valid JSON.":(err.message||"Backup validation failed.")}
+  finally{button.disabled=false}
+};
 admin$("admin-signout").onclick=async()=>{await adminSb.auth.signOut();showLogin()};
 (async()=>{const {data}=await adminSb.auth.getSession();if(data.session)await verifyAdmin(data.session.user);else showLogin();adminSb.auth.onAuthStateChange((event,session)=>{if(session)verifyAdmin(session.user);else{adminVerificationToken++;showLogin()}})})();
