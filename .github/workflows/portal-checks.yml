@@ -4,12 +4,12 @@ on:
   push:
     branches:
       - stage-2R37-student-portal-frontend
-      - stage-2R39-controlled-assessment-upload
       - stage-2R38-registration-login-import-foundation
       - stage-2R39-controlled-assessment-upload
   pull_request:
     branches:
       - stage-2R37-student-portal-frontend
+      - stage-2R39-controlled-assessment-upload
 
 permissions:
   contents: read
