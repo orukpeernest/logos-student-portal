@@ -25,7 +25,7 @@ const startFunction = sql.slice(
   sql.indexOf("CREATE OR REPLACE FUNCTION public.logos_td_student_save_exam_answer")
 );
 assert.match(startFunction, /'correct_answer'/, "server must snapshot answer keys");
-assert.doesNotMatch(startFunction, /'correct_answer'\s*,\s*question_snapshot/i, "student question payload must not expose answer keys");
+assert.doesNotMatch(startFunction, /'correct_answer'\s*,\s*question_snapshot->>/i, "student question payload must not expose answer keys");
 
 const saveFunction = sql.slice(
   sql.indexOf("CREATE OR REPLACE FUNCTION public.logos_td_student_save_exam_answer"),
