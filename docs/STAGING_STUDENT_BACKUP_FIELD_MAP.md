@@ -32,7 +32,7 @@ The payment and attendance collections are deliberately outside the student-prof
 
 ## Fields requiring clarification or separate handling
 
-- `academic_session` is required by the existing staging table, but the backup's `start` field is a month, not an academic-session label. Do not map one to the other. The import must receive an explicitly confirmed academic session or a separately approved schema change.
+- `academic_session` is required by the existing staging table. User has explicitly confirmed `2026/2027` as the academic session for all 52 profiles. Map this value to `academic_session`; retain the backup's `start` month separately as `enrollment_month`.
 - `cycle`, `dbase`, `dstart`, `expiry`, and `next` occur only on a small subset of records. Their business meaning must be confirmed before migration.
 - Payment records contain additional billing and receipt fields. They must be reconciled against the student stable ID before a separate payment migration.
 - Attendance records are keyed by registration value and date. They need a separate foreign-key mapping and duplicate-date review.
