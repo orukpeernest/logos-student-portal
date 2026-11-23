@@ -93,6 +93,159 @@ REVOKE ALL ON public.logos_td_attempt_answers FROM PUBLIC;
 -- Keep attempt tables RPC-only. The new answer table has no direct user policies.
 -- This helper is callable only by trusted server-side service_role and the
 -- owner-executed student RPCs below.
+
+-- New assessments default to hidden results. Existing exams retain the
+-- column default true, preserving visibility of historical results.
+CREATE OR REPLACE FUNCTION public.logos_td_admin_configure_exam(
+  p_exam_id text,
+  p_academic_session text,
+  p_starts_at timestamptz,
+  p_ends_at timestamptz,
+  p_max_attempts integer
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_exam public.logos_td_exams%ROWTYPE;
+BEGIN
+  IF NOT public.is_logos_admin() THEN
+    RAISE EXCEPTION 'Administrator access required';
+  END IF;
+  IF p_max_attempts IS NULL OR p_max_attempts < 1 THEN
+    RAISE EXCEPTION 'Maximum attempts must be at least one';
+  END IF;
+  IF p_starts_at IS NOT NULL AND p_ends_at IS NOT NULL AND p_ends_at <= p_starts_at THEN
+    RAISE EXCEPTION 'Assessment closing time must be after its start time';
+  END IF;
+
+  UPDATE public.logos_td_exams
+  SET academic_session = NULLIF(btrim(COALESCE(p_academic_session,'')), ''),
+      starts_at = p_starts_at,
+      ends_at = p_ends_at,
+      max_attempts = p_max_attempts
+  WHERE id::text = p_exam_id
+    AND status = 'draft'
+  RETURNING * INTO v_exam;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Only an existing draft assessment can be scheduled';
+  END IF;
+  RETURN to_jsonb(v_exam);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.logos_td_admin_set_results_released(
+  p_exam_id text,
+  p_released boolean
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_exam public.logos_td_exams%ROWTYPE;
+BEGIN
+  IF NOT public.is_logos_admin() THEN
+    RAISE EXCEPTION 'Administrator access required';
+  END IF;
+  UPDATE public.logos_td_exams
+  SET results_released = p_released
+  WHERE id::text = p_exam_id
+    AND status IN ('released','closed')
+  RETURNING * INTO v_exam;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Released or closed assessment not found';
+  END IF;
+  RETURN to_jsonb(v_exam);
+END;
+$function$;
+
+-- Override the existing creator without changing its public signature.
+-- Every newly created assessment starts with results hidden.
+CREATE OR REPLACE FUNCTION public.logos_td_admin_create_exam(
+  p_title text,
+  p_subject text,
+  p_exam_type text,
+  p_duration_minutes integer
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_exam public.logos_td_exams%ROWTYPE;
+BEGIN
+  IF NOT public.is_logos_admin() THEN
+    RAISE EXCEPTION 'Administrator access required';
+  END IF;
+  IF p_title IS NULL OR btrim(p_title) = '' THEN
+    RAISE EXCEPTION 'Exam title is required';
+  END IF;
+  IF p_duration_minutes IS NULL OR p_duration_minutes <= 0 THEN
+    RAISE EXCEPTION 'Duration must be greater than zero';
+  END IF;
+
+  INSERT INTO public.logos_td_exams (
+    title, subject, exam_type, duration_minutes, status, results_released
+  )
+  VALUES (
+    p_title, p_subject, p_exam_type, p_duration_minutes, 'draft', false
+  )
+  RETURNING * INTO v_exam;
+  RETURN to_jsonb(v_exam);
+END;
+$function$;
+
+-- Students see summary results only after the administrator releases them.
+CREATE OR REPLACE FUNCTION public.logos_td_student_results()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_student_id public.students.id%TYPE;
+  v_result jsonb;
+BEGIN
+  SELECT id INTO v_student_id
+  FROM public.students
+  WHERE auth_user_id = auth.uid()
+  LIMIT 1;
+  IF v_student_id IS NULL THEN
+    RAISE EXCEPTION 'Student account not linked';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(r)), '[]'::jsonb)
+  INTO v_result
+  FROM (
+    SELECT
+      a.id,
+      a.exam_id,
+      e.title AS exam_title,
+      e.subject,
+      a.score,
+      a.total_questions,
+      a.correct_count,
+      a.wrong_count,
+      a.unanswered_count,
+      a.duration_seconds,
+      a.submitted_at
+    FROM public.logos_td_attempts a
+    JOIN public.logos_td_exams e ON e.id = a.exam_id
+    WHERE a.student_id = v_student_id::text
+      AND a.status IN ('submitted','auto_submitted')
+      AND e.results_released = true
+    ORDER BY a.submitted_at DESC
+  ) r;
+  RETURN v_result;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.logos_td_finalize_attempt_internal(
   p_attempt_id uuid,
   p_auto boolean DEFAULT false
@@ -504,6 +657,8 @@ REVOKE ALL ON FUNCTION public.logos_td_finalize_attempt_internal(uuid, boolean) 
 REVOKE ALL ON FUNCTION public.logos_td_finalize_expired_attempts() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_finalize_expired_attempts() TO service_role;
 
+GRANT EXECUTE ON FUNCTION public.logos_td_admin_configure_exam(text, text, timestamptz, timestamptz, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.logos_td_admin_set_results_released(text, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_student_start_exam(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_student_save_exam_answer(uuid, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.logos_td_student_submit_exam_attempt(uuid) TO authenticated;
