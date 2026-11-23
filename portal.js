@@ -18,7 +18,7 @@ function normalizeList(data){if(Array.isArray(data))return data;if(data&&Array.i
 function pick(obj,keys,fallback=""){for(const k of keys)if(obj?.[k]!==undefined&&obj[k]!==null)return obj[k];return fallback}
 function optionEntries(q){const raw=pick(q,["options","choices","answers"],null);if(Array.isArray(raw))return raw.map((x,i)=>typeof x==="object"?[pick(x,["key","letter","option"],String.fromCharCode(65+i)),pick(x,["text","value","label"],"")]:[String.fromCharCode(65+i),x]);if(raw&&typeof raw==="object")return Object.entries(raw);return ["A","B","C","D","E"].map(k=>[k,q[k]??q["option_"+k.toLowerCase()]??q["option"+k]]).filter(([,v])=>v!==undefined&&v!==null&&v!=="")}
 function questionText(q){return pick(q,["question_text","question","text","content","body"],"Question text unavailable")}
-function imageMarkup(url){const value=String(url||"");if(!/^https:\/\//i.test(value))return "";return '<img class="question-image" src="'+esc(value)+'" alt="Question illustration" loading="lazy" referrerpolicy="no-referrer'>";}
+function imageMarkup(url){const value=String(url||"");if(!/^https:\/\//i.test(value))return "";return '<img class="question-image" src="'+esc(value)+'" alt="Question illustration" loading="lazy" referrerpolicy="no-referrer">";}
 function answerKey(q){return String(pick(q,["correct_answer","answer","answer_key","correct_option"],"")).trim().toUpperCase()}
 function questionId(q,i){return String(pick(q,["id","question_id"],i))}
 function subjectOptions(items){const vals=[...new Set(items.map(x=>pick(x,["subject"],"")).filter(Boolean))];return vals}
