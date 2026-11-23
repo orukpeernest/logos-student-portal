@@ -43,5 +43,25 @@ Read-only review only. No student data import, auth account creation, database/R
 - Completed aggregate-only review of the Android backup and documented the field mapping in `docs/STAGING_STUDENT_BACKUP_FIELD_MAP.md`.
 - No student records, photos, payment records, attendance records, or Auth accounts were imported or changed.
 
-## Remaining gate before schema migration
-The existing staging `students.academic_session` column is NOT NULL, while the backup's `start` field is a month string and is not an academic-session label. The importer must not silently equate them. Confirm the academic-session value to assign during import, or explicitly approve a schema change that makes the field nullable and stores enrollment month separately. Also confirm the meaning of the source `fee` amount before it is used in any fee calculations.
+## Schema verification — 2026-11-24
+
+- User applied migration `202611240001_student_profile_import_fields.sql` successfully in the staging project.
+- Read-only verification returned all nine expected columns and types:
+  - `app_student_id`, `gender`, `department`, `exam_type`, `enrollment_month`, `photo_storage_path`: text
+  - `fee_amount`: numeric
+  - `app_created_on`: date
+  - `legacy_metadata`: jsonb, NOT NULL
+- Academic session `2026/2027` was explicitly confirmed for all legacy profiles. Map it to `academic_session`; keep the legacy `start` month in `enrollment_month`.
+- The legacy `fee` value remains unapproved for balance calculations until its currency and business meaning are confirmed.
+- Existing student RLS remains enabled. The previously inspected policies permit administrators (via `is_logos_admin()`) to manage student rows and students to select only their linked row via `auth_user_id = auth.uid()`.
+- No student data, photos, payment records, attendance records, or Auth accounts have been imported or changed.
+
+## Next implementation gates
+
+1. Complete read-only inspection of the current student table constraints, grants, relevant policies, admin authorization helper, and all existing student-facing RPCs on staging.
+2. Build a server-side Edge Function for admin-authorized, bounded backup validation. It must authenticate the caller with their user JWT and independently verify administrator status; never trust a client-supplied admin flag.
+3. Keep profile upsert transactional in a narrowly scoped database function, keyed by `app_student_id`, with collision checks for `student_code` and generated usernames. Preserve existing `auth_user_id` links and never overwrite unrelated fields.
+4. Keep Auth account provisioning separate from profile import until username mapping, temporary-password handling, forced password change, rate limiting, and per-student access gates are implemented and tested. Auth Admin API operations cannot be assumed to share the database transaction.
+5. Test with synthetic dummy records only. Return aggregate counts and sanitized issue codes; never return student rows, photos, generated credentials, or raw exception details.
+
+The staging schema gate is complete; the importer and authentication gates remain open. Production and the Android app repositories remain out of scope.
