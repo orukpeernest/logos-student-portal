@@ -434,6 +434,59 @@ BEGIN
 END;
 $function$;
 
+
+CREATE OR REPLACE FUNCTION public.logos_td_student_available_exams()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_student_id public.students.id%TYPE;
+  v_result jsonb;
+BEGIN
+  SELECT id INTO v_student_id
+  FROM public.students
+  WHERE auth_user_id = auth.uid()
+  LIMIT 1;
+  IF v_student_id IS NULL THEN
+    RAISE EXCEPTION 'Student account not linked';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.released_at DESC NULLS LAST), '[]'::jsonb)
+  INTO v_result
+  FROM (
+    SELECT
+      e.id,
+      e.title,
+      e.subject,
+      e.exam_type,
+      e.duration_minutes,
+      e.status,
+      e.released_at,
+      e.starts_at,
+      e.ends_at,
+      EXISTS (
+        SELECT 1
+        FROM public.logos_td_attempts a
+        WHERE a.exam_id = e.id
+          AND a.student_id = v_student_id::text
+          AND a.status = 'in_progress'
+      ) AS has_in_progress_attempt
+    FROM public.logos_td_exams e
+    WHERE e.status = 'released'
+       OR EXISTS (
+        SELECT 1
+        FROM public.logos_td_attempts a
+        WHERE a.exam_id = e.id
+          AND a.student_id = v_student_id::text
+          AND a.status = 'in_progress'
+      )
+  ) r;
+  RETURN v_result;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.logos_td_student_start_exam(p_exam_id text)
 RETURNS jsonb
 LANGUAGE plpgsql
