@@ -61,7 +61,7 @@ Read-only review only. No student data import, auth account creation, database/R
 1. Complete read-only inspection of the current student table constraints, grants, relevant policies, admin authorization helper, and all existing student-facing RPCs on staging.
 2. Build a server-side Edge Function for admin-authorized, bounded backup validation. It must authenticate the caller with their user JWT and independently verify administrator status; never trust a client-supplied admin flag.
 3. Keep profile upsert transactional in a narrowly scoped database function, keyed by `app_student_id`, with collision checks for `student_code` and generated usernames. Preserve existing `auth_user_id` links and never overwrite unrelated fields.
-4. Keep Auth account provisioning separate from profile import until username mapping, temporary-password handling, forced password change, rate limiting, and per-student access gates are implemented and tested. Auth Admin API operations cannot be assumed to share the database transaction.
+4. Keep Auth account provisioning separate from profile import until username mapping, temporary-password handling, voluntary password-update support, rate limiting, and per-student access gates are implemented and tested. Auth Admin API operations cannot be assumed to share the database transaction.
 5. Test with synthetic dummy records only. Return aggregate counts and sanitized issue codes; never return student rows, photos, generated credentials, or raw exception details.
 
 The staging schema gate is complete; the importer and authentication gates remain open. Production and the Android app repositories remain out of scope.
