@@ -1,0 +1,24 @@
+{
+  "students": [
+    {
+      "id": "logos-staging-test-20261124-001",
+      "reg": "STAGING/TEST/9001",
+      "surname": "Teststudent",
+      "first": "Sample",
+      "other": "",
+      "phone": "",
+      "gphone": "",
+      "gender": "",
+      "dept": "",
+      "exam": "",
+      "fee": "",
+      "added": "",
+      "start": "",
+      "cycle": null,
+      "dbase": null,
+      "dstart": null,
+      "expiry": null,
+      "next": null
+    }
+  ]
+}
