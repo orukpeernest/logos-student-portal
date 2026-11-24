@@ -62,6 +62,9 @@ jobs:
           test -s admin-portal.html
           test -s admin-portal.js
           test -s student-import.js
+          test -s student-import.test.cjs
+          test -s test-admin-student-import-rpc.test.cjs
+          test -s supabase/migrations/202611240002_admin_student_profile_import_rpc.sql
           test -s test-question-import.js
           test -s test-question-import.test.cjs
           test -s test-controlled-assessment-migration.test.cjs
