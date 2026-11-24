@@ -17,6 +17,7 @@
   function inspectBackup(payload){
     const students=payload&&Array.isArray(payload.students)?payload.students:null;
     if(!students)return {ok:false,error:"This file is not a supported LOGOS backup: a students array was not found.",total:0,valid:0,invalid:0,duplicateLogins:0,issues:[]};
+    if(students.length===0)return {ok:false,error:"This backup contains no student records to import.",total:0,valid:0,invalid:0,duplicateLogins:0,issues:[]};
     const seen=new Map(),issues=[];
     let valid=0;
     students.forEach((student,index)=>{
