@@ -28,4 +28,5 @@ const malformed=inspect({students:[{surname:"",first:"",reg:"123"}]});
 assert.equal(malformed.invalid,1);
 assert.equal(malformed.issues[0].problems.length,4);
 assert.equal(inspect({records:[]}).ok,false);
+assert.equal(inspect({students:[]}).ok,false);
 process.stdout.write("Student import validation tests passed.\\n");
