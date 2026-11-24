@@ -7,7 +7,7 @@ Implement student sign-in on the existing student portal using the agreed userna
 - Source the suffix from the registration field (`reg`): strip non-digits and take the final four digits.
 - Username: uppercase surname, remove spaces, append suffix.
 - Initial password: suffix only (temporary bootstrap credential).
-- Require the student to set a new password at first login.
+- Students may keep the initial password or change it voluntarily at any time. No compulsory first-login password change.
 
 ## Current implementation gap
 - The student portal currently accepts email/password and calls Supabase Auth `signInWithPassword`.
@@ -19,17 +19,17 @@ Implement student sign-in on the existing student portal using the agreed userna
 2. **Server-side import:** Use a server-side privileged function/Edge Function (service-role secret stored only in Supabase secrets) to validate and transactionally upsert students by stable Android app ID. Return aggregate counts and sanitized validation issues only.
 3. **Auth accounts:** Provision Supabase Auth accounts server-side using a deterministic internal email identifier derived from the validated username (not a student's real email). Never return a bulk credential list. Store the mapping/username in a unique database field/table, not in public client code.
 4. **Login:** Prefer a server-side username lookup that resolves to the internal Auth identifier; client should never receive privileged credentials. If the Auth provider requires email/password, use the internal identifier behind the username login UI and validate collisions before provisioning.
-5. **Initial password:** The four-digit value is bootstrap-only. Require a server-enforced first-login password change and block student-data RPC access until complete. A UI-only gate is insufficient.
+5. **Initial password:** The agreed initial password is the final four registration digits. Do not require a first-login password change. Keep voluntary password updates available through the existing authenticated password-update flow; never store passwords in plaintext. Because the initial password is weak, retain rate limiting, generic login errors, secure Supabase Auth password hashing, and strict student-to-account isolation.
 6. **Rate limiting:** Add rate-limited login attempts, generic error messages, and no username enumeration.
 7. **Student isolation:** Each student-facing RPC must resolve the linked student from `auth.uid()`; verify profile and all sensitive records are scoped. Shared question-bank RPCs may return shared practice content but only to authenticated, linked students.
-8. **Testing:** Test only a dummy staging account first. Check login, forced password change, logout, dashboard, practice, released exam access, results, and cross-student denial. Use a real account only after these tests and safeguards are verified.
+8. **Testing:** Test only a dummy staging account first. Check login, optional password change, logout, dashboard, practice, released exam access, results, and cross-student denial. Use a real account only after these tests and safeguards are verified.
 
 ## Acceptance criteria
 - No student backup or credential list committed to GitHub or returned to browser.
 - No service-role key in static JavaScript.
 - Duplicate usernames and missing/short registration suffixes fail closed.
 - Import is transactional, admin-only, repeat-safe, and keyed by stable app student ID.
-- First-login password change is enforced server-side.
+- No compulsory first-login password change; voluntary password updates remain available.
 - Login is rate-limited and does not reveal whether a username exists.
 - Staging tests pass before any production plan.
 
@@ -65,3 +65,36 @@ Read-only review only. No student data import, auth account creation, database/R
 5. Test with synthetic dummy records only. Return aggregate counts and sanitized issue codes; never return student rows, photos, generated credentials, or raw exception details.
 
 The staging schema gate is complete; the importer and authentication gates remain open. Production and the Android app repositories remain out of scope.
+
+
+## Administrator authorization and table security review — 2026-11-24
+
+Read-only inspection of the staging `public.admin_users` table and `public.is_logos_admin()` returned:
+
+- `admin_users` columns: `user_id uuid`, `created_at timestamp with time zone`.
+- Constraints: primary key on `user_id`; foreign key to `auth.users(id)` with `ON DELETE CASCADE`.
+- RLS is enabled; FORCE RLS is not enabled.
+- No table policies were returned for `admin_users`.
+- Direct table grants: `postgres` has full privileges; no grants were listed for `anon` or `authenticated`. `service_role` has only REFERENCES, TRIGGER, and TRUNCATE entries, with no SELECT/INSERT/UPDATE/DELETE.
+- `is_logos_admin()` execution: denied to `anon`, allowed to `authenticated`, denied to `service_role`.
+- The helper is SECURITY DEFINER, STABLE, uses an empty search path, and checks the authenticated user's ID against `public.admin_users`.
+
+Security decision: preserve the current no-direct-grants posture and RLS. Do not add client-side table access or weaken policies. The importer authorization path must authenticate the caller and independently check `is_logos_admin()` in a narrowly scoped privileged operation. Since FORCE RLS is off, review SECURITY DEFINER ownership and function execution paths carefully before introducing any new function; do not assume RLS alone constrains its owner.
+
+## Student RPC and table-grant review — 2026-11-24
+
+- Existing student-facing RPCs are SECURITY DEFINER with an empty search path and resolve the student's row through `students.auth_user_id = auth.uid()`.
+- Enabled RPCs include student exam listing, practice, attempt start, answer saving, attempt detail, results, and submission operations. Legacy unsafe exam-question and client-submitted-attempt functions are disabled.
+- Existing `students` RLS is enabled. Administrator row management is gated by `is_logos_admin()`; students can select only their linked row.
+- The inspected `students` table grants show no direct DML privileges for `authenticated` and no direct table access grant for `anon`. Preserve the RPC-mediated access model.
+- No new student records or Auth users have been created; no backup data has been imported.
+
+## Updated implementation gates
+
+1. Complete the read-only schema, constraints, grants, RLS, admin helper, and student RPC review. This inspection gate is now complete for the objects reviewed above.
+2. Design and implement a bounded staging-only admin-authorized validation/import path. Verify caller JWT and administrator membership independently; never trust a client-supplied role flag.
+3. Keep profile upsert transactional in a narrowly scoped database function keyed by `app_student_id`, with collision checks for `student_code` and generated usernames. Preserve existing `auth_user_id` links and unrelated fields.
+4. Keep Auth account provisioning separate from profile import until username mapping, weak initial-password safeguards, rate limiting, and per-student access controls are tested. Auth Admin API operations cannot be assumed to share the database transaction.
+5. Test with synthetic dummy records only. Return aggregate counts and sanitized issue codes; never return student rows, photos, generated credentials, or raw exception details.
+
+The read-only schema/security inspection gate is complete for the reviewed objects. Importer and authentication gates remain open. No production or Android app changes are in scope.
