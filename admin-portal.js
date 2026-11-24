@@ -102,9 +102,16 @@ admin$("exam-results-release").onsubmit=async e=>{
   }catch(err){adminMsg(err.message||"Unable to update results visibility.")}
 };
 admin$("delete-question").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),id=String(f.get("question_id")).trim();if(!confirm("Delete question "+id+"? This action cannot be undone."))return;try{const ok=await adminRpc("logos_td_admin_delete_question",{p_question_id:id});setAdminStatus("Delete response: "+JSON.stringify(ok));adminMsg(ok?"Question deleted.":"Deletion was not confirmed.")}catch(err){adminMsg(err.message||"Delete failed.")}};
+let pendingStudentImport=null;
+admin$("student-backup-file").addEventListener("change",()=>{
+  pendingStudentImport=null;
+  admin$("student-backup-import").disabled=true;
+  admin$("student-backup-result").textContent="File changed. Validate it again before importing.";
+});
 admin$("student-backup-form").onsubmit=async e=>{
   e.preventDefault();
   const file=admin$("student-backup-file").files?.[0],result=admin$("student-backup-result"),button=admin$("student-backup-check");
+  pendingStudentImport=null;admin$("student-backup-import").disabled=true;
   if(!file){result.textContent="Choose a JSON backup file first.";return}
   if(file.size>20*1024*1024){result.textContent="The selected file is larger than the 20 MB validation limit.";return}
   button.disabled=true;result.textContent="Reading and validating backup…";
@@ -116,11 +123,42 @@ admin$("student-backup-form").onsubmit=async e=>{
       const lines=["Backup structure: "+(report.ok?"valid":"needs correction"),"Student records found: "+report.total,"Records passing checks: "+report.valid,"Records with issues: "+report.invalid,"Duplicate generated usernames: "+report.duplicateLogins];
       report.issues.slice(0,8).forEach(issue=>lines.push("Row "+issue.row+": "+issue.problems.join("; ")));
       if(report.issues.length>8)lines.push("…and "+(report.issues.length-8)+" more row(s) with issues.");
-      lines.push("No records have been uploaded or changed. Server-side import is a separate step.");
+      if(report.ok){
+        pendingStudentImport=payload;
+        admin$("student-backup-import").disabled=false;
+        lines.push("Validation passed. You may now import profiles to the connected staging database.");
+        lines.push("Photos, payments, attendance and login accounts are excluded.");
+      }else lines.push("No records have been uploaded. Correct the issues and validate again.");
       result.textContent=lines.join("\n");
     }else result.textContent=report.error;
   }catch(err){result.textContent=err instanceof SyntaxError?"The selected file is not valid JSON.":(err.message||"Backup validation failed.")}
   finally{button.disabled=false}
+};
+admin$("student-backup-import").onclick=async()=>{
+  const button=admin$("student-backup-import"),result=admin$("student-backup-result");
+  if(!pendingStudentImport){result.textContent="Validate a backup file before importing.";return}
+  const confirmed=confirm("Import "+pendingStudentImport.students.length+" student profiles into the connected LOGOS STAGING database? This does not create login accounts or import photos, payments or attendance.");
+  if(!confirmed)return;
+  button.disabled=true;admin$("student-backup-check").disabled=true;
+  try{
+    const rows=window.LOGOSStudentImport.buildImportPayload(pendingStudentImport);
+    const response=await adminRpc("logos_admin_import_student_profiles",{
+      p_students:rows,
+      p_academic_session:"2026/2027"
+    });
+    const count=Number(response?.imported);
+    if(response?.ok!==true||count!==rows.length)throw new Error("The database did not confirm the complete profile batch. Check the staging database before retrying.");
+    result.textContent="Import successful. Profiles imported: "+count+". Photos deferred: "+Number(response.photos_deferred||0)+". Payments imported: 0. Attendance imported: 0. Login accounts created: 0.";
+    setAdminStatus("Staging profile import completed. No Auth accounts, photos, payments or attendance were imported.");
+    adminMsg("Student profiles imported to staging.");
+    pendingStudentImport=null;
+    admin$("student-backup-form").reset();
+  }catch(err){
+    result.textContent="Import not confirmed: "+(err.message||"Unknown error")+". No success is assumed; inspect the staging records before retrying.";
+    adminMsg("Student profile import was not confirmed.");
+  }finally{
+    button.disabled=true;admin$("student-backup-check").disabled=false;
+  }
 };
 admin$("admin-signout").onclick=async()=>{await adminSb.auth.signOut();showLogin()};
 (async()=>{const {data}=await adminSb.auth.getSession();if(data.session)await verifyAdmin(data.session.user);else showLogin();adminSb.auth.onAuthStateChange((event,session)=>{if(session)verifyAdmin(session.user);else{adminVerificationToken++;showLogin()}})})();
