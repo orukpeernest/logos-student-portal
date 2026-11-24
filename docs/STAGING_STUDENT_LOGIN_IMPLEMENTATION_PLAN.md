@@ -98,3 +98,25 @@ Security decision: preserve the current no-direct-grants posture and RLS. Do not
 5. Test with synthetic dummy records only. Return aggregate counts and sanitized issue codes; never return student rows, photos, generated credentials, or raw exception details.
 
 The read-only schema/security inspection gate is complete for the reviewed objects. Importer and authentication gates remain open. No production or Android app changes are in scope.
+
+
+## Bounded administrator profile-import RPC — implementation draft
+
+Added migration `202611240002_admin_student_profile_import_rpc.sql` and static safety test `test-admin-student-import-rpc.test.cjs`.
+
+The proposed RPC `public.logos_admin_import_student_profiles(jsonb, text)` is deliberately narrow:
+
+- Requires a live authenticated identity and independently calls `is_logos_admin()`.
+- Uses `SECURITY DEFINER` with an empty `search_path`; execute is revoked from PUBLIC and anon and granted only to authenticated.
+- Accepts 1–100 profiles, maximum 1 MiB, and currently accepts only the confirmed `2026/2027` academic session for this legacy batch.
+- Validates required IDs/names, field lengths, registration suffix, enrollment month, date and numeric formats, duplicate legacy IDs, duplicate registration codes, and duplicate generated usernames within the batch.
+- Rejects a registration code already assigned to a different legacy profile.
+- Performs all profile upserts in one database transaction, keyed by the partial unique `app_student_id` index. A failure rolls back the entire batch.
+- Preserves existing `auth_user_id` links and existing optional profile values when the backup has no value. It does not change account status.
+- Returns aggregate counts only. It never returns profile rows, student names, registration values, photos, or credentials.
+- Does not create Auth users, passwords, or username mappings. It does not import photos, payments, or attendance. It reports the number of photo-bearing profiles deferred for a later private-storage workflow.
+- Keeps legacy `fee_amount` as a copied value only; no balance calculation is introduced.
+
+This migration has been committed to the staging branch but has **not** been applied to Supabase staging or runtime-tested yet. Do not enable the import action or import real profiles until the user applies the migration and a dummy-only authenticated administrator test confirms the RPC behavior. The RPC's SECURITY DEFINER owner and effective table privileges must be verified in staging as part of that test. Auth provisioning remains a separate gate because Supabase Auth account creation cannot be assumed to share the database transaction.
+
+The migration adds no direct table grants, does not disable RLS, and does not modify production.
