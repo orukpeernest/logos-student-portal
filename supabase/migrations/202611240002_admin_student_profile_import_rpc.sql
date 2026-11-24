@@ -31,8 +31,10 @@ begin
   if p_academic_session is distinct from '2026/2027' then
     raise exception 'Unsupported academic session.' using errcode = '22023';
   end if;
-  if jsonb_typeof(p_students) is distinct from 'array'
-     or jsonb_array_length(p_students) < 1
+  if jsonb_typeof(p_students) is distinct from 'array' then
+    raise exception 'Import payload must be a JSON array.' using errcode = '22023';
+  end if;
+  if jsonb_array_length(p_students) < 1
      or jsonb_array_length(p_students) > 100
      or pg_column_size(p_students) > 1048576 then
     raise exception 'Import must contain 1 to 100 profiles and remain within 1 MB.' using errcode = '22023';
@@ -77,7 +79,7 @@ begin
     end if;
 
     if coalesce(v_row->>'fee','') <> ''
-       and (v_row->>'fee') !~ '^[0-9]{1,10}(\\.[0-9]{1,2})?$' then
+       and (v_row->>'fee') !~ '^[0-9]{1,10}(\.[0-9]{1,2})?$' then
       raise exception 'A legacy fee value is invalid.' using errcode = '22023';
     end if;
 
