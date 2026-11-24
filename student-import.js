@@ -38,5 +38,29 @@
     const duplicateLogins=issues.filter(x=>x.problems.some(p=>p.startsWith("duplicate generated username"))).length;
     return {ok:issues.length===0,error:null,total:students.length,valid,invalid:issues.length,duplicateLogins,issues};
   }
-  window.LOGOSStudentImport={inspectBackup};
+  function buildImportPayload(payload){
+    const report=inspectBackup(payload);
+    if(!report.ok)throw new Error("Correct all validation issues before importing student profiles.");
+    return payload.students.map(student=>({
+      id:String(student.id),
+      reg:String(student.reg).trim(),
+      surname:String(student.surname).trim(),
+      first:String(student.first??"").trim(),
+      other:student.other==null?"":String(student.other),
+      phone:student.phone==null?"":String(student.phone),
+      gphone:student.gphone==null?"":String(student.gphone),
+      gender:student.gender==null?"":String(student.gender),
+      dept:student.dept==null?"":String(student.dept),
+      exam:student.exam==null?"":String(student.exam),
+      fee:student.fee==null?"":String(student.fee),
+      added:student.added==null?"":String(student.added),
+      start:student.start==null?"":String(student.start),
+      cycle:student.cycle??null,
+      dbase:student.dbase??null,
+      dstart:student.dstart??null,
+      expiry:student.expiry??null,
+      next:student.next??null
+    }));
+  }
+  window.LOGOSStudentImport={inspectBackup,buildImportPayload};
 })();
