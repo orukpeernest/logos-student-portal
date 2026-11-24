@@ -45,7 +45,7 @@ The payment and attendance collections are deliberately outside the student-prof
 3. Keep photos in a private bucket and authorize access through the student's linked identity.
 4. Do not import payment or attendance data as a side effect of student-profile import.
 5. Do not print student values, photos, or generated passwords in browser reports, GitHub commits, or function logs.
-6. Keep the real import disabled until the schema migration, server-side importer, dummy-account login, password-change enforcement, and cross-student isolation tests are complete.
+6. Keep the real import disabled until the schema migration, server-side importer, dummy-account login, voluntary password-update flow, and cross-student isolation tests are complete.
 
 ## Current status
 
