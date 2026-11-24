@@ -103,7 +103,7 @@ begin
     select 1
     from jsonb_array_elements(p_students) x(value)
     group by
-      regexp_replace(upper(trim(x.value->>'surname')), '\\s+', '', 'g') ||
+      regexp_replace(upper(trim(x.value->>'surname')), '\s+', '', 'g') ||
       right(regexp_replace(x.value->>'reg', '[^0-9]', '', 'g'), 4)
     having count(*) > 1
   ) then
@@ -130,7 +130,7 @@ begin
     v_surname := trim(v_row->>'surname');
     v_first := trim(v_row->>'first');
     v_suffix := right(regexp_replace(v_reg, '[^0-9]', '', 'g'), 4);
-    v_username := regexp_replace(upper(v_surname), '\\s+', '', 'g') || v_suffix;
+    v_username := regexp_replace(upper(v_surname), '\s+', '', 'g') || v_suffix;
 
     v_fee := null;
     if coalesce(v_row->>'fee','') <> '' then
