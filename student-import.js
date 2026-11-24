@@ -20,12 +20,13 @@
     const seen=new Map(),issues=[];
     let valid=0;
     students.forEach((student,index)=>{
-      const row=index+1,reg=String(student?.reg??"").trim(),surname=String(student?.surname??"").trim();
+      const row=index+1,reg=String(student?.reg??"").trim(),surname=String(student?.surname??"").trim(),first=String(student?.first??"").trim();
       const suffix=trailingFour(reg),username=loginFor(student);
       const problems=[];
       if(!reg)problems.push("registration value missing");
       else if(!suffix)problems.push("registration value has fewer than four digits");
       if(!surname)problems.push("surname missing");
+      if(!first)problems.push("first name missing");
       if(!student?.id)problems.push("app student ID missing");
       if(username){
         if(seen.has(username)){
@@ -45,7 +46,7 @@
       id:String(student.id),
       reg:String(student.reg).trim(),
       surname:String(student.surname).trim(),
-      first:String(student.first??"").trim(),
+      first:String(student.first).trim(),
       other:student.other==null?"":String(student.other),
       phone:student.phone==null?"":String(student.phone),
       gphone:student.gphone==null?"":String(student.gphone),
