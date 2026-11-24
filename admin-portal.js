@@ -142,20 +142,32 @@ admin$("student-backup-import").onclick=async()=>{
   button.disabled=true;admin$("student-backup-check").disabled=true;
   try{
     const rows=window.LOGOSStudentImport.buildImportPayload(pendingStudentImport);
-    const response=await adminRpc("logos_admin_import_student_profiles",{
-      p_students:rows,
-      p_academic_session:"2026/2027"
-    });
-    const count=Number(response?.imported);
-    if(response?.ok!==true||count!==rows.length)throw new Error("The database did not confirm the complete profile batch. Check the staging database before retrying.");
-    result.textContent="Import successful. Profiles imported: "+count+". Photos deferred: "+Number(response.photos_deferred||0)+". Payments imported: 0. Attendance imported: 0. Login accounts created: 0.";
+    let imported=0,photosDeferred=0;
+    const batchSize=100;
+    const batches=Math.ceil(rows.length/batchSize);
+    for(let offset=0;offset<rows.length;offset+=batchSize){
+      const batch=rows.slice(offset,offset+batchSize),batchNumber=Math.floor(offset/batchSize)+1;
+      result.textContent="Importing batch "+batchNumber+" of "+batches+" ("+imported+" of "+rows.length+" profiles confirmed)…";
+      const response=await adminRpc("logos_admin_import_student_profiles",{
+        p_students:batch,
+        p_academic_session:"2026/2027"
+      });
+      const count=Number(response?.imported);
+      if(response?.ok!==true||count!==batch.length)throw new Error("Batch "+batchNumber+" was not confirmed by the database.");
+      imported+=count;
+      photosDeferred+=Number(response.photos_deferred||0);
+    }
+    result.textContent="Import successful. Profiles imported: "+imported+". Photos deferred: "+photosDeferred+". Payments imported: 0. Attendance imported: 0. Login accounts created: 0.";
     setAdminStatus("Staging profile import completed. No Auth accounts, photos, payments or attendance were imported.");
     adminMsg("Student profiles imported to staging.");
     pendingStudentImport=null;
     admin$("student-backup-form").reset();
   }catch(err){
-    result.textContent="Import not confirmed: "+(err.message||"Unknown error")+". No success is assumed; inspect the staging records before retrying.";
-    adminMsg("Student profile import was not confirmed.");
+    const match=String(err.message||"").match(/Batch ([0-9]+) was not confirmed/);
+    const batchText=match?" Batch "+match[1]+" failed.":"";
+    result.textContent="Import incomplete."+batchText+" Profiles confirmed in earlier batches: "+(typeof imported!=="undefined"?imported:0)+". "+(err.message||"Unknown error")+" Earlier batches may already be saved. Revalidate and retrying the same backup is safe because profiles are upserted by their stable app IDs; check staging records if uncertain.";
+    setAdminStatus("Student profile import is incomplete. Do not assume the entire backup was imported.");
+    adminMsg("Student profile import incomplete.");
   }finally{
     button.disabled=true;admin$("student-backup-check").disabled=false;
   }
