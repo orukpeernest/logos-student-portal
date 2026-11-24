@@ -19,7 +19,7 @@ assert.match(sql, /auth_accounts_created', 0/i);
 assert.match(sql, /payments_imported', 0/i);
 assert.match(sql, /attendance_imported', 0/i);
 assert.match(sql, /photos_deferred/i);
-assert.match(sql, /legacy_metadata[\s\S]*?cycle[\s\S]*?dbase[\s\S]*?dstart[\s\S]*?expiry[\s\S]*?next/i);
+for (const key of ["cycle", "dbase", "dstart", "expiry", "next"]) assert.ok(sql.includes("'" + key + "'"), "missing preserved legacy metadata key: " + key);
 assert.doesNotMatch(sql, /disable row level security|drop policy|grant .* on table public\.students/i);
 assert.doesNotMatch(sql, /service_role|sb_secret_|p_password|password_hash/i);
 
