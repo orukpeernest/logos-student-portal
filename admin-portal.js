@@ -140,9 +140,10 @@ admin$("student-backup-import").onclick=async()=>{
   const confirmed=confirm("Import "+pendingStudentImport.students.length+" student profiles into the connected LOGOS STAGING database? This does not create login accounts or import photos, payments or attendance.");
   if(!confirmed)return;
   button.disabled=true;admin$("student-backup-check").disabled=true;
+  let imported=0;
   try{
     const rows=window.LOGOSStudentImport.buildImportPayload(pendingStudentImport);
-    let imported=0,photosDeferred=0;
+    let photosDeferred=0;
     const batchSize=100;
     const batches=Math.ceil(rows.length/batchSize);
     for(let offset=0;offset<rows.length;offset+=batchSize){
@@ -165,7 +166,7 @@ admin$("student-backup-import").onclick=async()=>{
   }catch(err){
     const match=String(err.message||"").match(/Batch ([0-9]+) was not confirmed/);
     const batchText=match?" Batch "+match[1]+" failed.":"";
-    result.textContent="Import incomplete."+batchText+" Profiles confirmed in earlier batches: "+(typeof imported!=="undefined"?imported:0)+". "+(err.message||"Unknown error")+" Earlier batches may already be saved. Revalidate and retrying the same backup is safe because profiles are upserted by their stable app IDs; check staging records if uncertain.";
+    result.textContent="Import incomplete."+batchText+" Profiles confirmed in earlier batches: "+imported+". "+(err.message||"Unknown error")+" Earlier batches may already be saved. Revalidating and retrying the same backup is safe because profiles are upserted by their stable app IDs; check staging records if uncertain.";
     setAdminStatus("Student profile import is incomplete. Do not assume the entire backup was imported.");
     adminMsg("Student profile import incomplete.");
   }finally{
