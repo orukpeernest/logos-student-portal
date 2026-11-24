@@ -18,8 +18,6 @@ declare
   v_reg text;
   v_surname text;
   v_first text;
-  v_suffix text;
-  v_username text;
   v_imported integer := 0;
   v_photo_pending integer := 0;
   v_fee numeric(12,2);
@@ -129,8 +127,6 @@ begin
     v_reg := v_row->>'reg';
     v_surname := trim(v_row->>'surname');
     v_first := trim(v_row->>'first');
-    v_suffix := right(regexp_replace(v_reg, '[^0-9]', '', 'g'), 4);
-    v_username := regexp_replace(upper(v_surname), '\s+', '', 'g') || v_suffix;
 
     v_fee := null;
     if coalesce(v_row->>'fee','') <> '' then
