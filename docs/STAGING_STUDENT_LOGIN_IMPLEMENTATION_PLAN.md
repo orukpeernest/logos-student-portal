@@ -120,3 +120,14 @@ The proposed RPC `public.logos_admin_import_student_profiles(jsonb, text)` is de
 This migration has been committed to the staging branch but has **not** been applied to Supabase staging or runtime-tested yet. Do not enable the import action or import real profiles until the user applies the migration and a dummy-only authenticated administrator test confirms the RPC behavior. The RPC's SECURITY DEFINER owner and effective table privileges must be verified in staging as part of that test. Auth provisioning remains a separate gate because Supabase Auth account creation cannot be assumed to share the database transaction.
 
 The migration adds no direct table grants, does not disable RLS, and does not modify production.
+
+
+## Admin portal import UI — staging RPC connection
+
+The admin portal now provides a two-step workflow: validate the selected JSON backup, then explicitly confirm import to the connected staging project. The frontend constructs an allowlisted payload and excludes photo data entirely. It sends only the profile fields required by the import RPC and the five approved legacy metadata keys.
+
+After a successful RPC response, the UI displays aggregate counts only. If the RPC returns an error or an unexpected count, the UI does not report success. Selecting a different file clears the validated-import state.
+
+Automated tests now cover the payload allowlist and confirm photo content is not forwarded. The SQL migration and RPC contract tests are included in staging CI.
+
+The database migration has been applied successfully by the user in staging. The UI changes are committed to the staging branch but are not deployed. Before any real import, a dummy-only administrator test is still required to verify the RPC end-to-end and confirm the database function executes with the intended owner privileges. No real student profiles have been imported.
